@@ -1,0 +1,251 @@
+#include "project/persistence.hpp"
+#include <charconv>
+#include <fstream>
+#include <iomanip>
+#include <random>
+#include <sstream>
+#include <system_error>
+
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
+namespace nle {
+namespace {
+constexpr std::size_t max_bytes = 16 * 1024 * 1024;
+constexpr std::uint64_t max_records = 100000;
+class Reader {
+  public:
+    explicit Reader(std::string_view data) : stream_(std::string(data)) {
+        stream_.imbue(std::locale::classic());
+    }
+    void expect(std::string_view expected) {
+        std::string actual;
+        if (!(stream_ >> actual) || actual != expected)
+            throw DomainError("expected native format token: " + std::string(expected));
+    }
+    template <typename T> T number() {
+        std::string token;
+        if (!(stream_ >> token))
+            throw DomainError("missing number");
+        T result{};
+        const auto [end, error] =
+            std::from_chars(token.data(), token.data() + token.size(), result);
+        if (error != std::errc{} || end != token.data() + token.size())
+            throw DomainError("invalid integer");
+        return result;
+    }
+    std::uint64_t count() {
+        const auto value = number<std::uint64_t>();
+        if (value > remaining_)
+            throw DomainError("native project record limit exceeded");
+        remaining_ -= value;
+        return value;
+    }
+    std::string text() {
+        stream_ >> std::ws;
+        if (stream_.peek() != '"')
+            throw DomainError("expected quoted text");
+        std::string value;
+        if (!(stream_ >> std::quoted(value)) || value.size() > 4096)
+            throw DomainError("invalid quoted text");
+        return value;
+    }
+    RationalTime time() {
+        const auto value = number<std::int64_t>();
+        const auto rate = number<std::int64_t>();
+        return {value, rate};
+    }
+    void end() {
+        stream_ >> std::ws;
+        if (!stream_.eof())
+            throw DomainError("trailing project data");
+    }
+
+  private:
+    std::istringstream stream_;
+    std::uint64_t remaining_ = max_records;
+};
+void write_time(std::ostream &out, RationalTime time) { out << time.value() << ' ' << time.rate(); }
+TrackKind track_kind(std::uint64_t value) {
+    if (value > 1)
+        throw DomainError("unknown track kind");
+    return static_cast<TrackKind>(value);
+}
+MediaKind media_kind(std::uint64_t value) {
+    if (value > 2)
+        throw DomainError("unknown media kind");
+    return static_cast<MediaKind>(value);
+}
+LocationRole location_role(std::uint64_t value) {
+    if (value > 1)
+        throw DomainError("unknown location role");
+    return static_cast<LocationRole>(value);
+}
+} // namespace
+
+std::string serialize(const ProjectSnapshot &project) {
+    validate(project);
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << "NLE_PROJECT 1\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
+        << std::quoted(project.name) << "\nMEDIA " << project.media.size() << '\n';
+    for (const auto &asset : project.media) {
+        out << "ASSET " << asset.id.value << ' ' << static_cast<int>(asset.kind) << ' '
+            << std::quoted(asset.name) << ' ';
+        write_time(out, asset.duration);
+        out << ' ' << asset.locations.size() << '\n';
+        for (const auto &location : asset.locations)
+            out << "LOCATION " << static_cast<int>(location.role) << ' '
+                << std::quoted(location.uri) << '\n';
+    }
+    out << "SEQUENCES " << project.sequences.size() << '\n';
+    for (const auto &sequence : project.sequences) {
+        out << "SEQUENCE " << sequence.id.value << ' ' << std::quoted(sequence.name) << ' ';
+        write_time(out, sequence.frame_duration);
+        out << ' ' << sequence.tracks.size() << '\n';
+        for (const auto &track : sequence.tracks) {
+            out << "TRACK " << track.id.value << ' ' << static_cast<int>(track.kind) << ' '
+                << std::quoted(track.name) << ' ' << track.clips.size() << '\n';
+            for (const auto &clip : track.clips) {
+                out << "CLIP " << clip.id.value << ' ' << clip.media.value << ' ';
+                write_time(out, clip.position);
+                out << ' ';
+                write_time(out, clip.source.start);
+                out << ' ';
+                write_time(out, clip.source.duration);
+                out << '\n';
+            }
+        }
+    }
+    out << "END\n";
+    auto data = out.str();
+    if (data.size() > max_bytes)
+        throw DomainError("native project exceeds 16 MiB");
+    // Enforce the reader's record budget on output too: every saved file is reloadable.
+    (void)deserialize(data);
+    return data;
+}
+
+ProjectSnapshot deserialize(std::string_view data) {
+    if (data.size() > max_bytes)
+        throw DomainError("native project exceeds 16 MiB");
+    Reader reader(data);
+    reader.expect("NLE_PROJECT");
+    if (reader.number<unsigned>() != 1)
+        throw DomainError("unsupported project version");
+    reader.expect("PROJECT");
+    ProjectSnapshot project;
+    project.id = ProjectId{reader.number<std::uint64_t>()};
+    project.next_id = reader.number<std::uint64_t>();
+    project.name = reader.text();
+    reader.expect("MEDIA");
+    const auto media_count = reader.count();
+    for (std::uint64_t i = 0; i < media_count; ++i) {
+        reader.expect("ASSET");
+        MediaAsset asset;
+        asset.id = MediaId{reader.number<std::uint64_t>()};
+        asset.kind = media_kind(reader.number<std::uint64_t>());
+        asset.name = reader.text();
+        asset.duration = reader.time();
+        const auto locations = reader.count();
+        for (std::uint64_t j = 0; j < locations; ++j) {
+            reader.expect("LOCATION");
+            const auto role = location_role(reader.number<std::uint64_t>());
+            asset.locations.push_back({role, reader.text()});
+        }
+        project.media.push_back(std::move(asset));
+    }
+    reader.expect("SEQUENCES");
+    const auto sequences = reader.count();
+    for (std::uint64_t i = 0; i < sequences; ++i) {
+        reader.expect("SEQUENCE");
+        Sequence sequence;
+        sequence.id = SequenceId{reader.number<std::uint64_t>()};
+        sequence.name = reader.text();
+        sequence.frame_duration = reader.time();
+        const auto tracks = reader.count();
+        for (std::uint64_t j = 0; j < tracks; ++j) {
+            reader.expect("TRACK");
+            Track track;
+            track.id = TrackId{reader.number<std::uint64_t>()};
+            track.kind = track_kind(reader.number<std::uint64_t>());
+            track.name = reader.text();
+            const auto clips = reader.count();
+            for (std::uint64_t k = 0; k < clips; ++k) {
+                reader.expect("CLIP");
+                Clip clip;
+                clip.id = ClipId{reader.number<std::uint64_t>()};
+                clip.media = MediaId{reader.number<std::uint64_t>()};
+                clip.position = reader.time();
+                clip.source.start = reader.time();
+                clip.source.duration = reader.time();
+                track.clips.push_back(clip);
+            }
+            sequence.tracks.push_back(std::move(track));
+        }
+        project.sequences.push_back(std::move(sequence));
+    }
+    reader.expect("END");
+    reader.end();
+    validate(project);
+    return project;
+}
+
+void save_project(const ProjectSnapshot &project, const std::filesystem::path &path) {
+    const auto data = serialize(project); // Validate before touching disk.
+    auto parent = path.parent_path();
+    if (parent.empty())
+        parent = ".";
+    // Reserve a unique adjacent directory atomically; never share a fixed temporary file.
+    std::random_device random;
+    std::filesystem::path staging;
+    for (int attempt = 0; attempt < 16; ++attempt) {
+        staging = parent / path.filename();
+        staging += ".tmp-" + std::to_string(random());
+        if (std::filesystem::create_directory(staging))
+            break;
+        staging.clear();
+    }
+    if (staging.empty())
+        throw DomainError("cannot reserve save staging directory");
+    const auto temporary = staging / "project";
+    try {
+        std::ofstream output(temporary, std::ios::binary);
+        if (!output)
+            throw DomainError("cannot open temporary project");
+        output.write(data.data(), static_cast<std::streamsize>(data.size()));
+        output.close();
+        if (!output)
+            throw DomainError("project write failed");
+#ifdef _WIN32
+        if (!MoveFileExW(temporary.c_str(), path.c_str(),
+                         MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+            throw DomainError("project replacement failed: " + std::to_string(GetLastError()));
+#else
+        std::filesystem::rename(temporary, path);
+#endif
+    } catch (...) {
+        std::error_code ignored;
+        std::filesystem::remove(temporary, ignored);
+        std::filesystem::remove(staging, ignored);
+        throw;
+    }
+    std::error_code ignored;
+    std::filesystem::remove(staging, ignored);
+}
+
+ProjectSnapshot load_project(const std::filesystem::path &path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input)
+        throw DomainError("cannot open project file");
+    std::string data(max_bytes + 1, '\0');
+    input.read(data.data(), static_cast<std::streamsize>(data.size()));
+    if (input.bad())
+        throw DomainError("project read failed");
+    data.resize(static_cast<std::size_t>(input.gcount()));
+    return deserialize(data);
+}
+} // namespace nle
