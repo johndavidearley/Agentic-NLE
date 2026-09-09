@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google.list
       - run: sudo apt-get update
       - run: sudo apt-get install -y clang-format-19
       - run: cmake -S . -B build -DCLANG_FORMAT=clang-format-19
