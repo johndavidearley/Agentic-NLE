@@ -12,14 +12,15 @@ Future MCP -----+          |                          |
                            |
                      detached snapshot + durable operation records
                            |
-                     native version 2 persistence
+                     native version 3 persistence
 ~~~
 
 ## Boundaries
 
 src/core owns exact rational time and domain errors. src/project owns detached project
 DTOs, validation, attribution records and persistence. src/commands owns sessions,
-transactions and typed commands. src/cli proves both milestones without Qt or decoding.
+transactions and typed commands. src/media owns the optional external ffprobe adapter and supervised process runner.
+src/cli exercises editing and source discovery without Qt or display decoding.
 There are no protocol, media backend or GUI dependencies in the command engine.
 
 Editor owns live state and immutable shared history entries. Its public entry points are
@@ -58,11 +59,14 @@ allocates a right ID. DeleteClip does not ripple; DeleteTrack cascades clips but
 ## Media, provenance and persistence
 
 A logical asset owns ID, name, declared stream capability and duration. Original/proxy
-locators are replaceable. Empty locations represent offline media. Relinking is metadata
-editing, not probing or decoding.
+locators are replaceable. SourceMetadata holds optional validated probe observations.
+The adapter probes outside Editor, then creates RegisterMedia or ReplaceMediaSource commands.
+Verified replacement checks kind and all clip bounds; ordinary original locator edits clear
+stale source metadata. Both paths preserve stable IDs and are undoable. File availability is
+computed separately on inspection. See [media probing](media-probing.md).
 
-Native version 2 adds revision/attribution to the application-owned model. Version 1 is
-explicitly migrated at load; unknown versions fail. No history is invented for imported
+Native version 3 adds source metadata to the version 2 revision/attribution model. Versions
+1 and 2 are explicitly migrated at load; unknown versions fail. No history is invented for imported
 old projects. Attribution records survive undo and save/load, but are not an authenticated
 or replayable event journal. Persistence consumes snapshots and atomically replaces a
 fully staged file during ordinary operation; power-loss durability is not promised.

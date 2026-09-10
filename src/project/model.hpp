@@ -1,6 +1,7 @@
 #pragma once
 #include "core/time.hpp"
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,33 @@ struct MediaLocation {
     std::string uri;
     bool operator==(const MediaLocation &) const = default;
 };
+// Backend-neutral source facts. Zero frame duration means unavailable, not zero fps.
+struct SourceStream {
+    std::uint32_t index = 0;
+    TrackKind kind = TrackKind::Video;
+    std::string codec;
+    RationalTime time_base;
+    std::int64_t duration_ticks = -1; // -1: use the container duration estimate.
+    std::int64_t start_ticks = 0;
+    bool start_known = false;
+    RationalTime frame_duration;
+    RationalTime nominal_frame_duration;
+    std::uint32_t width = 0, height = 0, sample_rate = 0, channels = 0;
+    bool operator==(const SourceStream &) const = default;
+};
+struct SourceMetadata {
+    std::string container;
+    std::string probe_version;
+    std::string probe_configuration;
+    std::uint64_t byte_size = 0;
+    RationalTime container_duration; // Rounded container estimate; zero means unavailable.
+    std::vector<SourceStream> streams;
+    bool operator==(const SourceMetadata &) const = default;
+};
+void validate_source(const SourceMetadata &source);
+RationalTime source_duration(const SourceMetadata &source);
+MediaKind source_kind(const SourceMetadata &source);
+RationalTime stream_duration(const SourceStream &stream, RationalTime fallback);
 struct MediaAsset {
     MediaId id;
     std::string name;
@@ -56,6 +84,7 @@ struct MediaAsset {
     RationalTime duration;
     // Empty locations represent an offline logical asset. Generated media is deferred.
     std::vector<MediaLocation> locations;
+    std::optional<SourceMetadata> source{};
     bool operator==(const MediaAsset &) const = default;
 };
 struct Clip {

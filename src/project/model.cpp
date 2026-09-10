@@ -1,6 +1,8 @@
 #include "project/model.hpp"
 #include <algorithm>
+#include <limits>
 #include <map>
+#include <numeric>
 #include <set>
 
 namespace nle {
@@ -25,6 +27,66 @@ bool supports(MediaKind media, TrackKind track) {
     return media == MediaKind::AudioVideo ||
            (media == MediaKind::Video && track == TrackKind::Video) ||
            (media == MediaKind::Audio && track == TrackKind::Audio);
+}
+RationalTime stream_duration(const SourceStream &stream, RationalTime fallback) {
+    if (stream.duration_ticks == -1)
+        return fallback;
+    if (stream.duration_ticks <= 0 || stream.time_base == RationalTime{})
+        throw DomainError("invalid stream duration or time base");
+    const auto divisor = std::gcd(stream.duration_ticks, stream.time_base.rate());
+    const auto ticks = stream.duration_ticks / divisor;
+    if (ticks > std::numeric_limits<std::int64_t>::max() / stream.time_base.value())
+        throw DomainError("stream duration overflow");
+    return {ticks * stream.time_base.value(), stream.time_base.rate() / divisor};
+}
+RationalTime source_duration(const SourceMetadata &source) {
+    std::optional<RationalTime> result;
+    for (const auto &stream : source.streams) {
+        const auto duration = stream_duration(stream, source.container_duration);
+        if (duration == RationalTime{})
+            throw DomainError("source duration unavailable");
+        if (!result || duration < *result)
+            result = duration;
+    }
+    if (!result)
+        throw DomainError("source has no audio/video streams");
+    return *result;
+}
+MediaKind source_kind(const SourceMetadata &source) {
+    bool video = false, audio = false;
+    for (const auto &stream : source.streams) {
+        video |= stream.kind == TrackKind::Video;
+        audio |= stream.kind == TrackKind::Audio;
+    }
+    if (!video && !audio)
+        throw DomainError("source has no audio/video streams");
+    return video && audio ? MediaKind::AudioVideo : video ? MediaKind::Video : MediaKind::Audio;
+}
+void validate_source(const SourceMetadata &source) {
+    validate_text(source.container);
+    validate_text(source.probe_version);
+    validate_text(source.probe_configuration);
+    if (source.byte_size == 0 || source.streams.empty() || source.streams.size() > 64)
+        throw DomainError("invalid source size or stream count");
+    std::set<std::uint32_t> indices;
+    for (const auto &stream : source.streams) {
+        validate_text(stream.codec);
+        if (!indices.insert(stream.index).second || stream.time_base == RationalTime{} ||
+            stream.duration_ticks < -1 || stream.duration_ticks == 0 ||
+            (!stream.start_known && stream.start_ticks != 0))
+            throw DomainError("invalid stream identity or timing");
+        if (stream.kind == TrackKind::Video) {
+            if (!stream.width || !stream.height || stream.sample_rate || stream.channels)
+                throw DomainError("invalid video stream dimensions");
+        } else if (stream.kind == TrackKind::Audio) {
+            if (!stream.sample_rate || !stream.channels || stream.width || stream.height ||
+                stream.frame_duration != RationalTime{} ||
+                stream.nominal_frame_duration != RationalTime{})
+                throw DomainError("invalid audio stream properties");
+        } else
+            throw DomainError("invalid stream kind");
+    }
+    (void)source_duration(source);
 }
 void validate(const ProjectSnapshot &project) {
     if (project.id.value == 0 || project.next_id == 0)
@@ -70,6 +132,15 @@ void validate(const ProjectSnapshot &project) {
             throw DomainError("invalid media kind");
         if (asset.duration == RationalTime{})
             throw DomainError("media duration must be positive");
+        if (asset.source) {
+            validate_source(*asset.source);
+            if (asset.duration != source_duration(*asset.source) ||
+                asset.kind != source_kind(*asset.source) ||
+                std::none_of(
+                    asset.locations.begin(), asset.locations.end(),
+                    [](const auto &location) { return location.role == LocationRole::Original; }))
+                throw DomainError("source metadata disagrees with logical asset");
+        }
         std::set<LocationRole> roles;
         for (const auto &location : asset.locations) {
             if (location.role != LocationRole::Original && location.role != LocationRole::Proxy)
@@ -116,6 +187,14 @@ std::size_t snapshot_bytes(const ProjectSnapshot &project) {
     bytes += project.media.capacity() * sizeof(MediaAsset);
     for (const auto &media : project.media) {
         bytes += media.name.capacity() + 1 + media.locations.capacity() * sizeof(MediaLocation);
+        if (media.source) {
+            const auto &source = *media.source;
+            bytes += source.container.capacity() + source.probe_version.capacity() +
+                     source.probe_configuration.capacity() + 3 +
+                     source.streams.capacity() * sizeof(SourceStream);
+            for (const auto &stream : source.streams)
+                bytes += stream.codec.capacity() + 1;
+        }
         for (const auto &location : media.locations)
             bytes += location.uri.capacity() + 1;
     }

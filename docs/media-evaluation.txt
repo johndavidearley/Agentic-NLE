@@ -1,0 +1,47 @@
+Milestone 3 media evaluation - 2026-09-10
+Host: Windows x64; MSVC 19.44; C++20; warnings treated as errors.
+Corpus generator: tools/media_corpus.py (local generated fixtures only).
+GStreamer/GES: documentation comparison only; not installed or executed.
+Linux/macOS: CI configured; execution not verified on this host.
+
+Backend version and build configuration:
+ffprobe version 9.0.1-essentials_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers
+built with gcc 16.1.0 (Rev2, Built by MSYS2 project)
+configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-cairo --enable-fontconfig --enable-iconv --enable-gnutls --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-zlib --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-sdl2 --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxvid --enable-libaom --enable-libopenjpeg --enable-libvpx --enable-mediafoundation --enable-libass --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-openal --enable-libgme --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libtheora --enable-libvo-amrwbenc --enable-libgsm --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-librubberband
+libavutil      61.  1.101 / 61.  1.101
+libavcodec     63.  1.101 / 63.  1.101
+libavformat    63.  1.101 / 63.  1.101
+libavdevice    63.  1.101 / 63.  1.101
+libavfilter    12.  1.101 / 12.  1.101
+libswscale     10.  1.101 / 10.  1.101
+libswresample   7.  1.101 /  7.  1.101
+
+Observed discovery output (Debug CLI):
+
+tone.wav
+D:\Agentic NLE\build\media-corpus\tone.wav
+  container=wav bytes=384044 probe=9.0.1-essentials_build-www.gyan.dev
+  stream=0 codec=pcm_s16le duration=2/1 stream-ticks time-base=1/48000 sample-rate=48000 channels=2
+
+short.wav
+D:\Agentic NLE\build\media-corpus\short.wav
+  container=wav bytes=96044 probe=9.0.1-essentials_build-www.gyan.dev
+  stream=0 codec=pcm_s16le duration=1/2 stream-ticks time-base=1/48000 sample-rate=48000 channels=2
+
+video.mp4
+D:\Agentic NLE\build\media-corpus\video.mp4
+  container=mov,mp4,m4a,3gp,3g2,mj2 bytes=8908 probe=9.0.1-essentials_build-www.gyan.dev
+  stream=0 codec=mpeg4 duration=1001/1000 stream-ticks time-base=1/30000 size=64x48 average-frame-duration=1001/30000
+
+av.mkv
+D:\Agentic NLE\build\media-corpus\av.mkv
+  container=matroska,webm bytes=434979 probe=9.0.1-essentials_build-www.gyan.dev
+  stream=0 codec=ffv1 duration=2/1 container-estimate time-base=1/1000 size=64x48 average-frame-duration=1/24
+  stream=1 codec=pcm_s16le duration=2/1 container-estimate time-base=1/1000 sample-rate=48000 channels=2
+
+Final local validation:
+- CTest Debug: 28/28 passed (including generated corpus and CLI failure/persistence tests).
+- CTest Release: 28/28 passed.
+- clang-format 19 format-check: passed.
+- CI YAML parsed; separate required media jobs cover Windows, Linux and both macOS architectures.
+- No Linux/macOS runtime result or GStreamer runtime comparison is claimed.

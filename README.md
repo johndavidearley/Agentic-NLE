@@ -2,7 +2,8 @@
 
 A professional open-source video editor designed for human editors and software agents.
 This repository implements **Milestone 2 — Hardened Editing Sessions**.
-There is no graphical editor, decoder, playback engine, or MCP server yet.
+There is no graphical editor, playback engine, or MCP server yet. An optional ffprobe
+adapter imports real source metadata through the existing command system.
 
 The C++20 core provides typed persistent identities, exact rational time, detached
 inspection snapshots, validated commands, grouped transactions, revisions, actor/operation attribution, bounded undo/redo, and versioned native persistence.
@@ -11,7 +12,8 @@ Human UI, CLI, and future MCP adapters share the same command boundary.
 ## Build and test
 
 Requires CMake 3.24+ and a C++20 compiler. No third-party libraries or downloads
-are required. Locally verified with MSVC 19.44 on Windows x64; CI targets GCC/Clang on Linux and Apple Clang on macOS (Apple Silicon and Intel), in Debug and Release.
+are required for the core/default tests. Real-file probing requires an optional external
+ffprobe executable; integration tests also require ffmpeg and Python 3. Locally verified with MSVC 19.44 on Windows x64; CI targets GCC/Clang on Linux and Apple Clang on macOS (Apple Silicon and Intel), in Debug and Release.
 
 PowerShell with Visual Studio 2022 C++ Build Tools installed:
 
@@ -63,6 +65,21 @@ It leaves two editable video clips and an empty audio track. It does not read de
 **demo and session-demo replace their output files; new rejects existing files.**
 The session-demo previews seven commands, commits them as one edit, undoes/redoes the entire batch, and verifies save/load. Revisions and attribution persist. Undo/redo is session-local; separate CLI invocations start new sessions.
 
+## Probe, import and relink media
+
+See [media probing](docs/media-probing.md) for commands, exact timing versus container
+estimates, optional tool setup, source availability and replacement validation.
+
+~~~powershell
+.\build\Debug\editor-cli.exe probe "D:\media\take.wav" "D:\tools\ffprobe.exe"
+.\build\Debug\editor-cli.exe import .\build\example.nle "D:\media\take.wav" "D:\tools\ffprobe.exe"
+.\build\Debug\editor-cli.exe media-status .\build\example.nle
+~~~
+
+Use relink PROJECT MEDIA_ID REPLACEMENT [FFPROBE] to verify and replace an original
+source while retaining its logical ID. Short or incompatible replacements reject atomically.
+The final FFPROBE argument may be omitted when ffprobe is on PATH.
+
 ## Editing contract
 
 - IDs are strong C++ types, stable across moves, saves, and reloads.
@@ -96,7 +113,7 @@ See [performance and validation](docs/performance.md) for measured budgets and r
 History defaults to 100 entries/64 MiB of accounted payload, not an RSS ceiling.
 Transactions allow 1,024 staged commands; attribution caps at 10,000 operations.
 Oversized edits and full audit logs reject changes explicitly. Native files remain
-limited to 16 MiB/100,000 nested records; version 1 loads migrate to version 2 on save.
+limited to 16 MiB/100,000 nested records; versions 1 and 2 migrate to version 3 on save.
 Open transactions and undo history are not persisted.
 
 There is no independent-writer coordination, retry idempotency, authenticated attribution,
@@ -104,5 +121,6 @@ audit compaction, power-loss durability or crash recovery. Use one authoritative
 per project. Exact time arithmetic retains milestone 1's conservative overflow limits;
 signed offsets, snapping, speed changes, linked A/V edits and transitions remain deferred.
 
-Original code is [MIT licensed](LICENSE). No third-party runtime library is introduced.
-Future dependency choices must document distribution and licensing requirements.
+Original code is [MIT licensed](LICENSE). No third-party runtime library is linked.
+The optional ffprobe executable retains its own build-specific license; see
+[ADR 0009](docs/adr/0009-media-probing.md). No media tools are bundled.

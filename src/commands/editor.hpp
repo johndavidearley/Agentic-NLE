@@ -20,6 +20,7 @@ struct RegisterMedia {
     MediaKind kind;
     RationalTime duration;
     std::vector<MediaLocation> locations;
+    std::optional<SourceMetadata> source{};
 };
 struct InsertClip {
     TrackId track;
@@ -57,9 +58,14 @@ struct RelinkMedia {
     LocationRole role;
     std::optional<std::string> uri;
 };
+struct ReplaceMediaSource {
+    MediaId media;
+    std::string uri;
+    SourceMetadata source;
+};
 using Command =
     std::variant<CreateSequence, CreateTrack, RegisterMedia, InsertClip, MoveClip, TrimClip,
-                 SplitClip, DeleteClip, DeleteTrack, ReorderTrack, RelinkMedia>;
+                 SplitClip, DeleteClip, DeleteTrack, ReorderTrack, RelinkMedia, ReplaceMediaSource>;
 struct CommandResult {
     std::optional<OperationId> operation;
     std::uint64_t revision = 0;

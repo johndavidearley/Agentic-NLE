@@ -51,109 +51,134 @@ ProjectId make_project_id() {
 CommandResult apply(ProjectSnapshot &candidate, const Command &command) {
     CommandResult result;
     std::visit(
-        Visitor{[&](const CreateSequence &c) {
-                    const auto id = allocate<SequenceId>(candidate);
-                    candidate.sequences.push_back({id, c.name, c.frame_duration, {}});
-                    result.sequence = id;
-                },
-                [&](const CreateTrack &c) {
-                    auto &sequence = find_sequence(candidate, c.sequence);
-                    const auto id = allocate<TrackId>(candidate);
-                    sequence.tracks.push_back({id, c.name, c.kind, {}});
-                    result.track = id;
-                },
-                [&](const RegisterMedia &c) {
-                    const auto id = allocate<MediaId>(candidate);
-                    candidate.media.push_back({id, c.name, c.kind, c.duration, c.locations});
-                    result.media = id;
-                },
-                [&](const InsertClip &c) {
-                    auto &track = find_track(candidate, c.track);
-                    const auto id = allocate<ClipId>(candidate);
-                    track.clips.push_back({id, c.media, c.position, c.source});
-                    result.clip = id;
-                },
-                [&](const MoveClip &c) {
-                    auto [source, index] = find_clip(candidate, c.clip);
-                    auto &destination = find_track(candidate, c.track);
-                    auto clip = source->clips[index];
-                    clip.position = c.position;
-                    source->clips.erase(source->clips.begin() + static_cast<std::ptrdiff_t>(index));
-                    destination.clips.push_back(clip);
-                },
-                [&](const TrimClip &c) {
-                    auto [track, index] = find_clip(candidate, c.clip);
-                    track->clips[index].position = c.position;
-                    track->clips[index].source = c.source;
-                },
-                [&](const SplitClip &c) {
-                    auto [track, index] = find_clip(candidate, c.clip);
-                    auto &left = track->clips[index];
-                    const auto end = left.position + left.source.duration;
-                    if (c.position <= left.position || c.position >= end)
-                        throw DomainError("split must be strictly inside clip");
-                    const auto offset = c.position - left.position;
-                    const auto right_id = allocate<ClipId>(candidate);
-                    Clip right{right_id,
-                               left.media,
-                               c.position,
-                               {left.source.start + offset, left.source.duration - offset}};
-                    left.source.duration = offset;
-                    track->clips.push_back(right);
-                    result.clip = right_id;
-                },
-                [&](const DeleteClip &c) {
-                    auto [track, index] = find_clip(candidate, c.clip);
-                    track->clips.erase(track->clips.begin() + static_cast<std::ptrdiff_t>(index));
-                },
-                [&](const DeleteTrack &c) {
-                    for (auto &sequence : candidate.sequences) {
-                        const auto it =
-                            std::find_if(sequence.tracks.begin(), sequence.tracks.end(),
-                                         [&](const auto &track) { return track.id == c.track; });
-                        if (it != sequence.tracks.end()) {
-                            sequence.tracks.erase(it);
-                            return;
-                        }
-                    }
-                    throw DomainError("track not found");
-                },
-                [&](const ReorderTrack &c) {
-                    auto &sequence = find_sequence(candidate, c.sequence);
-                    if (c.index >= sequence.tracks.size())
-                        throw DomainError("track index out of range");
+        Visitor{
+            [&](const CreateSequence &c) {
+                const auto id = allocate<SequenceId>(candidate);
+                candidate.sequences.push_back({id, c.name, c.frame_duration, {}});
+                result.sequence = id;
+            },
+            [&](const CreateTrack &c) {
+                auto &sequence = find_sequence(candidate, c.sequence);
+                const auto id = allocate<TrackId>(candidate);
+                sequence.tracks.push_back({id, c.name, c.kind, {}});
+                result.track = id;
+            },
+            [&](const RegisterMedia &c) {
+                const auto id = allocate<MediaId>(candidate);
+                candidate.media.push_back({id, c.name, c.kind, c.duration, c.locations, c.source});
+                result.media = id;
+            },
+            [&](const InsertClip &c) {
+                auto &track = find_track(candidate, c.track);
+                const auto id = allocate<ClipId>(candidate);
+                track.clips.push_back({id, c.media, c.position, c.source});
+                result.clip = id;
+            },
+            [&](const MoveClip &c) {
+                auto [source, index] = find_clip(candidate, c.clip);
+                auto &destination = find_track(candidate, c.track);
+                auto clip = source->clips[index];
+                clip.position = c.position;
+                source->clips.erase(source->clips.begin() + static_cast<std::ptrdiff_t>(index));
+                destination.clips.push_back(clip);
+            },
+            [&](const TrimClip &c) {
+                auto [track, index] = find_clip(candidate, c.clip);
+                track->clips[index].position = c.position;
+                track->clips[index].source = c.source;
+            },
+            [&](const SplitClip &c) {
+                auto [track, index] = find_clip(candidate, c.clip);
+                auto &left = track->clips[index];
+                const auto end = left.position + left.source.duration;
+                if (c.position <= left.position || c.position >= end)
+                    throw DomainError("split must be strictly inside clip");
+                const auto offset = c.position - left.position;
+                const auto right_id = allocate<ClipId>(candidate);
+                Clip right{right_id,
+                           left.media,
+                           c.position,
+                           {left.source.start + offset, left.source.duration - offset}};
+                left.source.duration = offset;
+                track->clips.push_back(right);
+                result.clip = right_id;
+            },
+            [&](const DeleteClip &c) {
+                auto [track, index] = find_clip(candidate, c.clip);
+                track->clips.erase(track->clips.begin() + static_cast<std::ptrdiff_t>(index));
+            },
+            [&](const DeleteTrack &c) {
+                for (auto &sequence : candidate.sequences) {
                     const auto it =
                         std::find_if(sequence.tracks.begin(), sequence.tracks.end(),
                                      [&](const auto &track) { return track.id == c.track; });
-                    if (it == sequence.tracks.end())
-                        throw DomainError("track not found in sequence");
-                    auto track = std::move(*it);
-                    sequence.tracks.erase(it);
-                    sequence.tracks.insert(sequence.tracks.begin() +
-                                               static_cast<std::ptrdiff_t>(c.index),
-                                           std::move(track));
-                },
-                [&](const RelinkMedia &c) {
-                    if (c.role != LocationRole::Original && c.role != LocationRole::Proxy)
-                        throw DomainError("invalid location role");
-                    for (auto &media : candidate.media) {
-                        if (media.id != c.media)
-                            continue;
-                        auto it = std::find_if(
-                            media.locations.begin(), media.locations.end(),
-                            [&](const auto &location) { return location.role == c.role; });
-                        if (!c.uri) {
-                            if (it != media.locations.end())
-                                media.locations.erase(it);
-                        } else if (it == media.locations.end()) {
-                            media.locations.push_back({c.role, *c.uri});
-                        } else {
-                            it->uri = *c.uri;
-                        }
+                    if (it != sequence.tracks.end()) {
+                        sequence.tracks.erase(it);
                         return;
                     }
-                    throw DomainError("media not found");
-                }},
+                }
+                throw DomainError("track not found");
+            },
+            [&](const ReorderTrack &c) {
+                auto &sequence = find_sequence(candidate, c.sequence);
+                if (c.index >= sequence.tracks.size())
+                    throw DomainError("track index out of range");
+                const auto it =
+                    std::find_if(sequence.tracks.begin(), sequence.tracks.end(),
+                                 [&](const auto &track) { return track.id == c.track; });
+                if (it == sequence.tracks.end())
+                    throw DomainError("track not found in sequence");
+                auto track = std::move(*it);
+                sequence.tracks.erase(it);
+                sequence.tracks.insert(sequence.tracks.begin() +
+                                           static_cast<std::ptrdiff_t>(c.index),
+                                       std::move(track));
+            },
+            [&](const ReplaceMediaSource &c) {
+                validate_source(c.source);
+                for (auto &media : candidate.media) {
+                    if (media.id != c.media)
+                        continue;
+                    if (media.kind != source_kind(c.source))
+                        throw DomainError("replacement media kind differs from logical asset");
+                    auto it = std::find_if(media.locations.begin(), media.locations.end(),
+                                           [](const auto &location) {
+                                               return location.role == LocationRole::Original;
+                                           });
+                    if (it == media.locations.end())
+                        media.locations.push_back({LocationRole::Original, c.uri});
+                    else
+                        it->uri = c.uri;
+                    media.duration = source_duration(c.source);
+                    media.source = c.source;
+                    result.media = media.id;
+                    return;
+                }
+                throw DomainError("media not found");
+            },
+            [&](const RelinkMedia &c) {
+                if (c.role != LocationRole::Original && c.role != LocationRole::Proxy)
+                    throw DomainError("invalid location role");
+                for (auto &media : candidate.media) {
+                    if (media.id != c.media)
+                        continue;
+                    if (c.role == LocationRole::Original)
+                        media.source.reset();
+                    auto it =
+                        std::find_if(media.locations.begin(), media.locations.end(),
+                                     [&](const auto &location) { return location.role == c.role; });
+                    if (!c.uri) {
+                        if (it != media.locations.end())
+                            media.locations.erase(it);
+                    } else if (it == media.locations.end()) {
+                        media.locations.push_back({c.role, *c.uri});
+                    } else {
+                        it->uri = *c.uri;
+                    }
+                    return;
+                }
+                throw DomainError("media not found");
+            }},
         command);
     sort_tracks(candidate);
     validate(candidate);
@@ -202,6 +227,9 @@ std::string describe(const Command &command, const CommandResult &result) {
                        [&](const ReorderTrack &c) {
                            out << "ReorderTrack sequence=" << c.sequence.value
                                << " track=" << c.track.value << " index=" << c.index;
+                       },
+                       [&](const ReplaceMediaSource &c) {
+                           out << "ReplaceMediaSource media=" << c.media.value;
                        },
                        [&](const RelinkMedia &c) {
                            out << "RelinkMedia media=" << c.media.value

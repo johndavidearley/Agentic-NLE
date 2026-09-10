@@ -46,3 +46,31 @@ jobs:
       - run: cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug -DNLE_SANITIZERS=ON
       - run: cmake --build build --parallel
       - run: ctest --test-dir build --output-on-failure
+  media-integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux probe tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) -exec grep -l 'dl.google.com/linux/chrome' {} + | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Install Windows probe tools
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --yes --no-progress
+      - name: Install macOS probe tools
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Record backend build
+        run: ffprobe -version
+      - name: Configure with required media corpus
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNLE_MEDIA_INTEGRATION=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure

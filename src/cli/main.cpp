@@ -1,17 +1,43 @@
 #include "commands/editor.hpp"
+#include "media/probe.hpp"
 #include "project/persistence.hpp"
+#include <charconv>
 #include <filesystem>
 #include <iostream>
 #include <string_view>
 
 namespace {
 using namespace nle;
+void inspect_source(const SourceMetadata &source) {
+    std::cout << "  container=" << source.container << " bytes=" << source.byte_size
+              << " probe=" << source.probe_version << '\n';
+    for (const auto &stream : source.streams) {
+        const auto duration = stream_duration(stream, source.container_duration);
+        std::cout << "  stream=" << stream.index << " codec=" << stream.codec
+                  << " duration=" << duration.value() << '/' << duration.rate()
+                  << (stream.duration_ticks == -1 ? " container-estimate" : " stream-ticks")
+                  << " time-base=" << stream.time_base.value() << '/' << stream.time_base.rate();
+        if (stream.kind == TrackKind::Video)
+            std::cout << " size=" << stream.width << 'x' << stream.height
+                      << " average-frame-duration=" << stream.frame_duration.value() << '/'
+                      << stream.frame_duration.rate();
+        else
+            std::cout << " sample-rate=" << stream.sample_rate << " channels=" << stream.channels;
+        std::cout << '\n';
+    }
+}
 void inspect(const ProjectSnapshot &project) {
     std::cout << "Project " << project.id.value << " \"" << project.name << "\"\n";
     std::cout << "revision=" << project.revision << " operations=" << project.operations.size()
               << '\n';
     std::cout << "media=" << project.media.size() << " sequences=" << project.sequences.size()
               << '\n';
+    for (const auto &asset : project.media) {
+        std::cout << "Media " << asset.id.value << " name=" << asset.name
+                  << " status=" << media::status_name(media::source_status(asset)) << '\n';
+        if (asset.source)
+            inspect_source(*asset.source);
+    }
     for (const auto &sequence : project.sequences) {
         std::cout << "Sequence " << sequence.id.value << " \"" << sequence.name << "\"\n";
         for (const auto &track : sequence.tracks) {
@@ -73,16 +99,49 @@ ProjectSnapshot session_demo() {
 }
 } // namespace
 
-int main(int argc, char **argv) {
+int run(int argc, char **argv) {
     try {
         if (argc < 3) {
-            std::cerr << "Usage: editor-cli new FILE [NAME] | add-sequence FILE NAME | inspect FILE"
-                         " | demo FILE | session-demo FILE\n";
+            std::cerr
+                << "Usage: editor-cli new FILE [NAME] | add-sequence FILE NAME | inspect FILE"
+                   " | demo FILE | session-demo FILE | probe MEDIA [FFPROBE] | import PROJECT "
+                   "MEDIA [FFPROBE] | relink PROJECT ID MEDIA [FFPROBE] | media-status PROJECT\n";
             return 2;
         }
         const std::string_view operation = argv[1];
-        const std::filesystem::path path = argv[2];
-        if (operation == "new" && (argc == 3 || argc == 4)) {
+        const auto path = nle::media::utf8_path(argv[2]);
+        if (operation == "probe" && (argc == 3 || argc == 4)) {
+            const auto result =
+                nle::media::probe(path, argc == 4 ? nle::media::utf8_path(argv[3]) : "ffprobe");
+            std::cout << result.uri << '\n';
+            inspect_source(result.source);
+        } else if (operation == "import" && (argc == 4 || argc == 5)) {
+            nle::Editor editor(nle::load_project(path));
+            const auto revision = editor.revision();
+            const auto result =
+                nle::media::probe(nle::media::utf8_path(argv[3]),
+                                  argc == 5 ? nle::media::utf8_path(argv[4]) : "ffprobe");
+            const auto added =
+                editor.execute(result.import_command(), {{}, "Import media", revision});
+            nle::save_project(editor.snapshot(), path);
+            std::cout << "Imported media=" << added.media->value << '\n';
+        } else if (operation == "relink" && (argc == 5 || argc == 6)) {
+            nle::MediaId id;
+            const std::string_view text = argv[3];
+            const auto [end, error] =
+                std::from_chars(text.data(), text.data() + text.size(), id.value);
+            if (error != std::errc{} || end != text.data() + text.size() || !id.value)
+                throw nle::DomainError("invalid media ID");
+            nle::Editor editor(nle::load_project(path));
+            const auto revision = editor.revision();
+            const auto result =
+                nle::media::probe(nle::media::utf8_path(argv[4]),
+                                  argc == 6 ? nle::media::utf8_path(argv[5]) : "ffprobe");
+            (void)editor.execute(result.relink_command(id),
+                                 {{}, "Relink verified media", revision});
+            nle::save_project(editor.snapshot(), path);
+            std::cout << "Relinked media=" << id.value << '\n';
+        } else if (operation == "new" && (argc == 3 || argc == 4)) {
             if (std::filesystem::exists(path))
                 throw nle::DomainError("new requires a path that does not exist");
             nle::Editor editor(argc == 4 ? argv[3] : "Untitled");
@@ -91,7 +150,7 @@ int main(int argc, char **argv) {
             nle::Editor editor(nle::load_project(path));
             (void)editor.execute(nle::CreateSequence{argv[3]});
             nle::save_project(editor.snapshot(), path);
-        } else if (operation == "inspect" && argc == 3) {
+        } else if ((operation == "inspect" || operation == "media-status") && argc == 3) {
             inspect(nle::load_project(path));
         } else if ((operation == "demo" || operation == "session-demo") && argc == 3) {
             auto editor = operation == "demo" ? demo() : session_demo();
@@ -109,3 +168,17 @@ int main(int argc, char **argv) {
         return 1;
     }
 }
+
+#ifdef _WIN32
+int wmain(int argc, wchar_t **wide) {
+    std::vector<std::string> storage;
+    for (int i = 0; i < argc; ++i)
+        storage.push_back(nle::media::path_utf8(std::filesystem::path(wide[i])));
+    std::vector<char *> argv;
+    for (auto &arg : storage)
+        argv.push_back(arg.data());
+    return run(argc, argv.data());
+}
+#else
+int main(int argc, char **argv) { return run(argc, argv); }
+#endif

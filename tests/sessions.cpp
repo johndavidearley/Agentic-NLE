@@ -308,7 +308,7 @@ void migration() {
     CHECK(migrated.next_id == 9);
     CHECK(migrated.revision == 0);
     CHECK(migrated.operations.empty());
-    CHECK(serialize(migrated).starts_with("NLE_PROJECT 2"));
+    CHECK(serialize(migrated).starts_with("NLE_PROJECT 3"));
     Editor editor(migrated);
     auto batch = editor.begin(agent(0));
     const auto right = *batch.execute(SplitClip{ClipId{5}, {5}}).clip;
@@ -334,7 +334,7 @@ void migration() {
     invalid = reloaded.snapshot();
     invalid.revision = 0;
     rejects([&] { (void)Editor(invalid); });
-    rejects([] { (void)deserialize("NLE_PROJECT 3"); });
+    rejects([] { (void)deserialize("NLE_PROJECT 4"); });
 
     auto full = migrated;
     for (std::size_t i = 1; i <= max_operations; ++i)

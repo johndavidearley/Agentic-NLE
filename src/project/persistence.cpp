@@ -90,7 +90,7 @@ std::string serialize(const ProjectSnapshot &project) {
     validate(project);
     std::ostringstream out;
     out.imbue(std::locale::classic());
-    out << "NLE_PROJECT 2\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
+    out << "NLE_PROJECT 3\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
         << std::quoted(project.name) << "\nMEDIA " << project.media.size() << '\n';
     for (const auto &asset : project.media) {
         out << "ASSET " << asset.id.value << ' ' << static_cast<int>(asset.kind) << ' '
@@ -100,6 +100,27 @@ std::string serialize(const ProjectSnapshot &project) {
         for (const auto &location : asset.locations)
             out << "LOCATION " << static_cast<int>(location.role) << ' '
                 << std::quoted(location.uri) << '\n';
+        out << "SOURCE " << (asset.source ? 1 : 0) << '\n';
+        if (asset.source) {
+            const auto &source = *asset.source;
+            out << "METADATA " << std::quoted(source.container) << ' '
+                << std::quoted(source.probe_version) << ' '
+                << std::quoted(source.probe_configuration) << ' ' << source.byte_size << ' ';
+            write_time(out, source.container_duration);
+            out << ' ' << source.streams.size() << '\n';
+            for (const auto &stream : source.streams) {
+                out << "STREAM " << stream.index << ' ' << static_cast<int>(stream.kind) << ' '
+                    << std::quoted(stream.codec) << ' ';
+                write_time(out, stream.time_base);
+                out << ' ' << stream.duration_ticks << ' ' << (stream.start_known ? 1 : 0) << ' '
+                    << stream.start_ticks << ' ';
+                write_time(out, stream.frame_duration);
+                out << ' ';
+                write_time(out, stream.nominal_frame_duration);
+                out << ' ' << stream.width << ' ' << stream.height << ' ' << stream.sample_rate
+                    << ' ' << stream.channels << '\n';
+            }
+        }
     }
     out << "SEQUENCES " << project.sequences.size() << '\n';
     for (const auto &sequence : project.sequences) {
@@ -145,7 +166,7 @@ ProjectSnapshot deserialize(std::string_view data) {
     Reader reader(data);
     reader.expect("NLE_PROJECT");
     const auto version = reader.number<unsigned>();
-    if (version != 1 && version != 2)
+    if (version != 1 && version != 2 && version != 3)
         throw DomainError("unsupported project version");
     reader.expect("PROJECT");
     ProjectSnapshot project;
@@ -166,6 +187,46 @@ ProjectSnapshot deserialize(std::string_view data) {
             reader.expect("LOCATION");
             const auto role = location_role(reader.number<std::uint64_t>());
             asset.locations.push_back({role, reader.text()});
+        }
+        if (version >= 3) {
+            reader.expect("SOURCE");
+            const auto present = reader.number<unsigned>();
+            if (present > 1)
+                throw DomainError("invalid source flag");
+            if (present) {
+                reader.expect("METADATA");
+                SourceMetadata source;
+                source.container = reader.text();
+                source.probe_version = reader.text();
+                source.probe_configuration = reader.text();
+                source.byte_size = reader.number<std::uint64_t>();
+                source.container_duration = reader.time();
+                const auto streams = reader.count();
+                if (streams > 64)
+                    throw DomainError("too many source streams");
+                for (std::uint64_t j = 0; j < streams; ++j) {
+                    reader.expect("STREAM");
+                    SourceStream stream;
+                    stream.index = reader.number<std::uint32_t>();
+                    stream.kind = track_kind(reader.number<unsigned>());
+                    stream.codec = reader.text();
+                    stream.time_base = reader.time();
+                    stream.duration_ticks = reader.number<std::int64_t>();
+                    const auto known = reader.number<unsigned>();
+                    if (known > 1)
+                        throw DomainError("invalid stream start flag");
+                    stream.start_known = known != 0;
+                    stream.start_ticks = reader.number<std::int64_t>();
+                    stream.frame_duration = reader.time();
+                    stream.nominal_frame_duration = reader.time();
+                    stream.width = reader.number<std::uint32_t>();
+                    stream.height = reader.number<std::uint32_t>();
+                    stream.sample_rate = reader.number<std::uint32_t>();
+                    stream.channels = reader.number<std::uint32_t>();
+                    source.streams.push_back(std::move(stream));
+                }
+                asset.source = std::move(source);
+            }
         }
         project.media.push_back(std::move(asset));
     }
@@ -199,7 +260,7 @@ ProjectSnapshot deserialize(std::string_view data) {
         }
         project.sequences.push_back(std::move(sequence));
     }
-    if (version == 2) {
+    if (version >= 2) {
         reader.expect("AUDIT");
         project.revision = reader.number<std::uint64_t>();
         const auto operations = reader.count();
