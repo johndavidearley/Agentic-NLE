@@ -23,6 +23,9 @@ std::string path_utf8(const std::filesystem::path &path) {
     const auto text = path.u8string();
     return {text.begin(), text.end()};
 }
+bool stop_requested(const ProcessOptions &options) {
+    return options.stop && options.stop->load(std::memory_order_relaxed);
+}
 namespace {
 std::filesystem::path resolve_executable(const std::filesystem::path &requested) {
     if (requested.has_parent_path())
@@ -100,7 +103,7 @@ std::string run_process(const std::filesystem::path &requested,
     if (options.timeout.count() <= 0 || options.max_output == 0 ||
         options.max_output > 16 * 1024 * 1024)
         throw DomainError("invalid process limits");
-    if (options.stop.stop_requested())
+    if (stop_requested(options))
         throw DomainError("probe cancelled");
     const auto executable = resolve_executable(requested);
     const auto deadline = std::chrono::steady_clock::now() + options.timeout;
@@ -112,7 +115,7 @@ std::string run_process(const std::filesystem::path &requested,
         output.append(buffer.data(), size);
     };
     const auto check = [&] {
-        if (options.stop.stop_requested())
+        if (stop_requested(options))
             throw DomainError("probe cancelled");
         if (std::chrono::steady_clock::now() >= deadline)
             throw DomainError("probe timed out");
