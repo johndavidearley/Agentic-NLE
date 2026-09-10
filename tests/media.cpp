@@ -11,6 +11,16 @@ using namespace nle::media;
         if (!(condition))                                                                          \
             throw std::runtime_error("check failed: " #condition);                                 \
     } while (false)
+struct JoinGuard {
+    explicit JoinGuard(std::thread &thread) : thread(thread) {}
+    ~JoinGuard() {
+        if (thread.joinable())
+            thread.join();
+    }
+    JoinGuard(const JoinGuard &) = delete;
+    JoinGuard &operator=(const JoinGuard &) = delete;
+    std::thread &thread;
+};
 template <typename F> void rejects(F fn) {
     bool failed = false;
     try {
@@ -130,13 +140,13 @@ void process(const std::filesystem::path &helper) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         stop.store(true, std::memory_order_relaxed);
     });
+    JoinGuard join_cancel(cancel);
     rejects([&] {
         (void)run_process(helper, {"sleep"}, {std::chrono::seconds(5), 1024, std::cref(stop)});
     });
     rejects([&] {
         (void)run_process(helper, {"echo"}, {std::chrono::seconds(5), 1024, std::cref(stop)});
     });
-    cancel.join();
 }
 void integration(const std::filesystem::path &executable, const std::filesystem::path &directory) {
     const auto audio = probe(directory / "tone.wav", executable);
