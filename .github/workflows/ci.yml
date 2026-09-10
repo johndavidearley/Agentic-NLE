@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022, macos-15, macos-15-intel]
         config: [Debug, Release]
         compiler: [default]
         include:

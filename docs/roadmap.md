@@ -15,7 +15,7 @@ Native version 2 explicitly migrates version 1 while preserving object IDs and a
 watermarks. Single-authority identity/UUID policy is recorded in ADR 0008.
 Tests include competing writers, failed/stale/foreign batches, history pruning, migration,
 2,000 deterministic malformed-file mutations and Windows replacement-lock failure.
-CI configuration adds GCC/Clang/MSVC and Linux address/undefined-behavior sanitizers.
+CI configuration covers Windows, Linux, and macOS (Apple Silicon and Intel), with GCC/Clang/MSVC/Apple Clang and Linux address/undefined-behavior sanitizers.
 See performance.md for local measurements and exact verification scope.
 
 Exit demonstrated: batches preview, commit and undo/redo as one edit; failed/stale batches

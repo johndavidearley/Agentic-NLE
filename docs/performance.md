@@ -34,7 +34,7 @@ cmake --build build --config Release
 .\build\Release\nle-benchmark.exe
 ~~~
 
-Linux uses ./build/nle-benchmark. Benchmark invariants fail the executable; elapsed time
+Linux and macOS use ./build/nle-benchmark. Benchmark invariants fail the executable; elapsed time
 is reported as diagnostic data. No external media, random timing input or downloads are used.
 
 ## Verification scope
@@ -54,6 +54,6 @@ The transaction CLI demo builds a sequence in seven staged commands, previews it
 commits as one entry, undoes/redoes and verifies save/load.
 clang-format 19 checks the sources, tests and benchmark.
 
-CI configuration covers GCC and Clang on Ubuntu, MSVC on Windows, Debug/Release,
-and Linux ASan/UBSan. Hosted CI and Linux sanitizer results have not been run or
+CI configuration covers GCC and Clang on Ubuntu, MSVC on Windows, and Apple Clang on macOS 15 (Apple Silicon and Intel), all in Debug/Release,
+and Linux ASan/UBSan. Hosted macOS/Linux CI and Linux sanitizer results have not been run or
 claimed from this Windows session. No dependencies or codecs were introduced.

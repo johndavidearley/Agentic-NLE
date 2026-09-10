@@ -11,7 +11,7 @@ Human UI, CLI, and future MCP adapters share the same command boundary.
 ## Build and test
 
 Requires CMake 3.24+ and a C++20 compiler. No third-party libraries or downloads
-are required. Locally verified with MSVC 19.44 on Windows x64; CI also targets GCC.
+are required. Locally verified with MSVC 19.44 on Windows x64; CI targets GCC/Clang on Linux and Apple Clang on macOS (Apple Silicon and Intel), in Debug and Release.
 
 PowerShell with Visual Studio 2022 C++ Build Tools installed:
 
@@ -23,13 +23,24 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ~~~
 
-Linux:
+Linux and macOS (CMake plus a C++20 toolchain; on macOS, install Xcode Command Line Tools):
 
 ~~~sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ~~~
+
+For a Release build on Linux/macOS, use a separate directory:
+
+~~~sh
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release --parallel
+ctest --test-dir build-release --output-on-failure
+~~~
+
+macOS CI uses the explicit macos-15 (Apple Silicon) and macos-15-intel runners.
+macOS execution must be verified by CI; it has not been run from this Windows workspace.
 
 Warnings are errors. Formatting uses clang-format 19. Set
 -DCLANG_FORMAT=/path/to/clang-format when configuring if it is not on PATH,
@@ -45,7 +56,7 @@ then build targets **format** or **format-check**.
 .\build\Debug\editor-cli.exe add-sequence .\build\example.nle Main
 ~~~
 
-On Linux the executable is ./build/editor-cli.
+On Linux and macOS the executable is ./build/editor-cli.
 The demo creates video/audio tracks and a logical asset, inserts, moves, trims,
 splits and deletes a clip, exercises undo/redo, saves, reloads, and checks equality.
 It leaves two editable video clips and an empty audio track. It does not read demo.mov.
