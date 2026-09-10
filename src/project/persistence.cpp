@@ -90,7 +90,7 @@ std::string serialize(const ProjectSnapshot &project) {
     validate(project);
     std::ostringstream out;
     out.imbue(std::locale::classic());
-    out << "NLE_PROJECT 1\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
+    out << "NLE_PROJECT 2\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
         << std::quoted(project.name) << "\nMEDIA " << project.media.size() << '\n';
     for (const auto &asset : project.media) {
         out << "ASSET " << asset.id.value << ' ' << static_cast<int>(asset.kind) << ' '
@@ -120,6 +120,16 @@ std::string serialize(const ProjectSnapshot &project) {
             }
         }
     }
+    out << "AUDIT " << project.revision << ' ' << project.operations.size() << '\n';
+    for (const auto &operation : project.operations) {
+        out << "OP " << operation.id.value << ' ' << operation.revision << ' '
+            << static_cast<int>(operation.kind) << ' ' << operation.target.value << ' '
+            << static_cast<int>(operation.actor.kind) << ' '
+            << std::quoted(operation.actor.id.value) << ' ' << std::quoted(operation.label) << ' '
+            << operation.actions.size() << '\n';
+        for (const auto &action : operation.actions)
+            out << "ACTION " << std::quoted(action) << '\n';
+    }
     out << "END\n";
     auto data = out.str();
     if (data.size() > max_bytes)
@@ -134,7 +144,8 @@ ProjectSnapshot deserialize(std::string_view data) {
         throw DomainError("native project exceeds 16 MiB");
     Reader reader(data);
     reader.expect("NLE_PROJECT");
-    if (reader.number<unsigned>() != 1)
+    const auto version = reader.number<unsigned>();
+    if (version != 1 && version != 2)
         throw DomainError("unsupported project version");
     reader.expect("PROJECT");
     ProjectSnapshot project;
@@ -188,6 +199,39 @@ ProjectSnapshot deserialize(std::string_view data) {
         }
         project.sequences.push_back(std::move(sequence));
     }
+    if (version == 2) {
+        reader.expect("AUDIT");
+        project.revision = reader.number<std::uint64_t>();
+        const auto operations = reader.count();
+        if (operations > max_operations)
+            throw DomainError("too many operations");
+        for (std::uint64_t i = 0; i < operations; ++i) {
+            reader.expect("OP");
+            OperationRecord operation;
+            operation.id = OperationId{reader.number<std::uint64_t>()};
+            operation.revision = reader.number<std::uint64_t>();
+            const auto kind = reader.number<unsigned>();
+            if (kind > 2)
+                throw DomainError("invalid change kind");
+            operation.kind = static_cast<ChangeKind>(kind);
+            operation.target = OperationId{reader.number<std::uint64_t>()};
+            const auto actor_kind = reader.number<unsigned>();
+            if (actor_kind > 2)
+                throw DomainError("invalid actor kind");
+            operation.actor.kind = static_cast<ActorKind>(actor_kind);
+            operation.actor.id.value = reader.text();
+            operation.label = reader.text();
+            const auto actions = reader.count();
+            if (actions > max_batch_commands)
+                throw DomainError("too many batch actions");
+            for (std::uint64_t j = 0; j < actions; ++j) {
+                reader.expect("ACTION");
+                operation.actions.push_back(reader.text());
+            }
+            project.operations.push_back(std::move(operation));
+        }
+    }
+    // Version 1 migrates explicitly to revision zero with unknown historical attribution.
     reader.expect("END");
     reader.end();
     validate(project);

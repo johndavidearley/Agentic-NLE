@@ -27,6 +27,8 @@ template <typename Fn> void rejects(Fn action) {
     throw std::runtime_error("expected DomainError");
 }
 bool same_content(ProjectSnapshot a, ProjectSnapshot b) {
+    a.revision = b.revision;
+    a.operations = b.operations;
     a.next_id = b.next_id; // Allocation watermark is intentionally never rewound.
     return a == b;
 }
@@ -202,7 +204,7 @@ void split_tests() {
     CHECK(f.editor.undo());
     CHECK(f.clip(id) == original);
     CHECK(f.editor.redo());
-    CHECK(f.editor.snapshot() == split_state);
+    CHECK(same_content(f.editor.snapshot(), split_state));
 }
 void delete_tests() {
     Fixture f;
@@ -213,7 +215,7 @@ void delete_tests() {
     CHECK(f.editor.snapshot().sequences[0].tracks[0].clips.size() == 1);
     CHECK(f.clip(other).position == RationalTime{20}); // No implicit ripple.
     CHECK(f.editor.undo());
-    CHECK(f.editor.snapshot() == before);
+    CHECK(same_content(f.editor.snapshot(), before));
     CHECK(f.editor.redo());
     f.reject(DeleteClip{id});
 }
@@ -289,7 +291,7 @@ void persistence_tests() {
     replace_once("MEDIA 1", "MEDIA -1");
     replace_once("MEDIA 1", "MEDIA 100001");
     replace_once("MEDIA 1", "MEDIA 18446744073709551616");
-    replace_once("NLE_PROJECT 1", "NLE_PROJECT 1.0");
+    replace_once("NLE_PROJECT 2", "NLE_PROJECT 2.0");
     replace_once("\"Test\"", "Test");
     replace_once("ASSET 4 2", "ASSET 4 99");
     replace_once("TRACK 2 0", "TRACK 2 99");

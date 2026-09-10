@@ -8,6 +8,8 @@ namespace {
 using namespace nle;
 void inspect(const ProjectSnapshot &project) {
     std::cout << "Project " << project.id.value << " \"" << project.name << "\"\n";
+    std::cout << "revision=" << project.revision << " operations=" << project.operations.size()
+              << '\n';
     std::cout << "media=" << project.media.size() << " sequences=" << project.sequences.size()
               << '\n';
     for (const auto &sequence : project.sequences) {
@@ -26,7 +28,7 @@ void inspect(const ProjectSnapshot &project) {
         }
     }
 }
-Editor demo() {
+ProjectSnapshot demo() {
     Editor editor("Headless timeline demo");
     const auto sequence = *editor.execute(CreateSequence{"Main", {1001, 24000}}).sequence;
     const auto video = *editor.execute(CreateTrack{sequence, TrackKind::Video, "V1"}).track;
@@ -44,7 +46,30 @@ Editor demo() {
     (void)editor.execute(DeleteClip{right});
     if (!editor.undo() || !editor.redo() || !editor.undo())
         throw DomainError("demo undo/redo failed");
-    return editor;
+    return editor.snapshot();
+}
+ProjectSnapshot session_demo() {
+    Editor editor("Transactional timeline demo");
+    const auto empty = editor.snapshot();
+    auto batch = editor.begin({{ActorId{"agent:cli-demo"}, ActorKind::Agent},
+                               "Build and trim a sequence",
+                               editor.revision()});
+    const auto sequence = *batch.execute(CreateSequence{"Main"}).sequence;
+    const auto track = *batch.execute(CreateTrack{sequence, TrackKind::Video, "V1"}).track;
+    const auto media =
+        *batch.execute(RegisterMedia{"Offline asset", MediaKind::Video, {60}, {}}).media;
+    const auto clip = *batch.execute(InsertClip{track, media, {0}, {{0}, {10}}}).clip;
+    (void)batch.execute(TrimClip{clip, {2}, {{1}, {8}}});
+    (void)batch.execute(SplitClip{clip, {6}});
+    (void)batch.execute(RelinkMedia{media, LocationRole::Original, "demo.mov"});
+    const auto preview = batch.preview();
+    if (editor.snapshot() != empty || preview.sequences.size() != 1)
+        throw DomainError("preview isolation failed");
+    if (!editor.commit(std::move(batch)) || editor.revision() != 1 || !editor.undo() ||
+        !editor.snapshot().sequences.empty() || !editor.redo())
+        throw DomainError("batch commit/undo/redo failed");
+    std::cout << "Batch preview, commit, undo and redo passed\n";
+    return editor.snapshot();
 }
 } // namespace
 
@@ -52,7 +77,7 @@ int main(int argc, char **argv) {
     try {
         if (argc < 3) {
             std::cerr << "Usage: editor-cli new FILE [NAME] | add-sequence FILE NAME | inspect FILE"
-                         " | demo FILE\n";
+                         " | demo FILE | session-demo FILE\n";
             return 2;
         }
         const std::string_view operation = argv[1];
@@ -68,11 +93,11 @@ int main(int argc, char **argv) {
             nle::save_project(editor.snapshot(), path);
         } else if (operation == "inspect" && argc == 3) {
             inspect(nle::load_project(path));
-        } else if (operation == "demo" && argc == 3) {
-            auto editor = demo();
-            nle::save_project(editor.snapshot(), path);
+        } else if ((operation == "demo" || operation == "session-demo") && argc == 3) {
+            auto editor = operation == "demo" ? demo() : session_demo();
+            nle::save_project(editor, path);
             const auto reloaded = nle::load_project(path);
-            if (editor.snapshot() != reloaded)
+            if (editor != reloaded)
                 throw nle::DomainError("demo round-trip failed");
             inspect(reloaded);
         } else {

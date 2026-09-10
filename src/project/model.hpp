@@ -15,6 +15,32 @@ using TrackId = Id<struct TrackTag>;
 using ClipId = Id<struct ClipTag>;
 using MediaId = Id<struct MediaTag>;
 
+using OperationId = Id<struct OperationTag>;
+struct ActorId {
+    std::string value = "local";
+    bool operator==(const ActorId &) const = default;
+};
+enum class ActorKind { Human, Agent, System };
+struct Actor {
+    ActorId id;
+    ActorKind kind = ActorKind::Human;
+    bool operator==(const Actor &) const = default;
+};
+enum class ChangeKind { Edit, Undo, Redo };
+struct OperationRecord {
+    OperationId id;
+    std::uint64_t revision = 0;
+    Actor actor;
+    std::string label;
+    ChangeKind kind = ChangeKind::Edit;
+    OperationId target;               // Undo/redo refer to the original committed edit.
+    std::vector<std::string> actions; // Descriptive operation summaries, not replay instructions.
+    bool operator==(const OperationRecord &) const = default;
+};
+inline constexpr std::size_t max_operations = 10000;
+inline constexpr std::size_t max_batch_commands = 1024;
+void validate_actor(const Actor &actor);
+void validate_text(const std::string &text);
 enum class TrackKind { Video, Audio };
 enum class MediaKind { Video, Audio, AudioVideo };
 enum class LocationRole { Original, Proxy };
@@ -60,9 +86,12 @@ struct ProjectSnapshot {
     std::uint64_t next_id = 1;
     std::vector<MediaAsset> media;
     std::vector<Sequence> sequences;
+    std::uint64_t revision = 0;
+    std::vector<OperationRecord> operations{};
     bool operator==(const ProjectSnapshot &) const = default;
 };
 void validate(const ProjectSnapshot &project);
+std::size_t snapshot_bytes(const ProjectSnapshot &project);
 bool clip_less(const Clip &a, const Clip &b);
 bool supports(MediaKind media, TrackKind track);
 } // namespace nle
