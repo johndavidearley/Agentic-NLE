@@ -10,7 +10,7 @@ namespace nle::media {
 struct ProcessOptions {
     std::chrono::milliseconds timeout{30000};
     std::size_t max_output = 1024 * 1024;
-    std::shared_ptr<std::atomic_bool> stop{};
+    std::shared_ptr<const std::atomic_bool> stop{};
 };
 std::string run_process(const std::filesystem::path &executable,
                         const std::vector<std::string> &arguments, ProcessOptions options = {});
