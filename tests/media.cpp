@@ -1,5 +1,6 @@
 #include "media/probe.hpp"
 #include "project/persistence.hpp"
+#include <atomic>
 #include <fstream>
 #include <iostream>
 #include <thread>
@@ -10,6 +11,16 @@ using namespace nle::media;
         if (!(condition))                                                                          \
             throw std::runtime_error("check failed: " #condition);                                 \
     } while (false)
+struct JoinGuard {
+    explicit JoinGuard(std::thread &thread) : thread(thread) {}
+    ~JoinGuard() {
+        if (thread.joinable())
+            thread.join();
+    }
+    JoinGuard(const JoinGuard &) = delete;
+    JoinGuard &operator=(const JoinGuard &) = delete;
+    std::thread &thread;
+};
 template <typename F> void rejects(F fn) {
     bool failed = false;
     try {
@@ -124,16 +135,17 @@ void process(const std::filesystem::path &helper) {
     rejects([&] { (void)run_process(helper, {"sleep"}, {std::chrono::milliseconds(50)}); });
     rejects([&] { (void)run_process(helper, {"flood"}, {std::chrono::seconds(5), 128}); });
     rejects([&] { (void)run_process(helper.parent_path() / "missing-executable-123", {}); });
-    std::stop_source stop;
-    std::jthread cancel([&] {
+    std::atomic_bool stop = false;
+    std::thread cancel([&] {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        stop.request_stop();
+        stop.store(true, std::memory_order_relaxed);
+    });
+    JoinGuard join_cancel(cancel);
+    rejects([&] {
+        (void)run_process(helper, {"sleep"}, {std::chrono::seconds(5), 1024, std::cref(stop)});
     });
     rejects([&] {
-        (void)run_process(helper, {"sleep"}, {std::chrono::seconds(5), 1024, stop.get_token()});
-    });
-    rejects([&] {
-        (void)run_process(helper, {"echo"}, {std::chrono::seconds(5), 1024, stop.get_token()});
+        (void)run_process(helper, {"echo"}, {std::chrono::seconds(5), 1024, std::cref(stop)});
     });
 }
 void integration(const std::filesystem::path &executable, const std::filesystem::path &directory) {
