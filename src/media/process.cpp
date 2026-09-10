@@ -23,7 +23,7 @@ std::string path_utf8(const std::filesystem::path &path) {
     const auto text = path.u8string();
     return {text.begin(), text.end()};
 }
-bool stop_requested(const ProcessOptions &options) {
+static bool stop_requested(const ProcessOptions &options) {
     return options.stop && options.stop->get().load(std::memory_order_relaxed);
 }
 namespace {
