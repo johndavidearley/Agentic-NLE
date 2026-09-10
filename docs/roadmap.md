@@ -1,32 +1,41 @@
 # Roadmap
 
-## Milestone 1 — Headless Timeline Core
+## Milestone 1 — Headless Timeline Core (complete)
 
-Implemented: typed IDs; rational time; video/audio tracks; logical media registration;
-insert, move, trim, split and delete; undo/redo; detached inspection; native save/load;
-CLI demo; invariant tests; build, formatting, warnings and CI configuration; architecture ADRs.
+Typed IDs; rational time; tracks/media; insert, move, trim, split and delete;
+undo/redo; snapshots; native persistence; CLI; invariant tests; build and architecture.
 
-No decoding, desktop UI, playback or live MCP server is included.
+## Milestone 2 — Hardened Editing Sessions (complete)
 
-## Recommended Milestone 2 — Hardened Editing Sessions
+Grouped preview/commit/rollback transactions; stale-revision rejection; synchronized
+Editor entry points; persisted actor/operation metadata; pull-based edit notifications;
+history entry/byte limits; undoable track deletion/reordering and media relinking.
 
-Add grouped transactions with preview/commit/rollback, revisions, actor/operation metadata,
-history limits and edit notifications. Add track deletion/reordering and media relinking
-only with explicit undo semantics. Expand persistence fuzzing, compiler coverage,
-large-project benchmarks and failure testing. Decide UUID policy and schema migrations.
+Native version 2 explicitly migrates version 1 while preserving object IDs and allocation
+watermarks. Single-authority identity/UUID policy is recorded in ADR 0008.
+Tests include competing writers, failed/stale/foreign batches, history pruning, migration,
+2,000 deterministic malformed-file mutations and Windows replacement-lock failure.
+CI configuration adds GCC/Clang/MSVC and Linux address/undefined-behavior sanitizers.
+See performance.md for local measurements and exact verification scope.
 
-Exit: batches preview and commit as one undoable unit; failed/stale batches have no
-effect; identity survives session/history boundaries; memory/latency budgets are measured.
+Exit demonstrated: batches preview, commit and undo/redo as one edit; failed/stale batches
+leave live state unchanged; identity/attribution survive save/load; retention and latency
+budgets are measured. Open transactions/history are intentionally not persisted.
 
-## Subsequent bounded milestones
+## Recommended Milestone 3 — Media Probing and Source Metadata
 
-1. Media probing: compare FFmpeg and GStreamer/GES with a shared corpus and explicit
-   licensing/build configurations. Keep the native model independent.
-2. Minimal playback and Qt timeline: establish A/V clock, seek, proxy and snapping
-   policies. Human edits use the command API.
-3. Small MCP adapter: inspection, a few edits and transactions, with revision/idempotency
-   rules and the same editing session as the UI.
-4. Native-format evolution and OTIO interchange: report or reject lossy conversions.
+Choose a probing backend through a bounded FFmpeg vs GStreamer/GES evaluation with
+explicit licensing/build configurations and a shared media corpus. Import real duration,
+frame rate, stream metadata and offline/relink status into stable logical assets.
+Preserve the existing native model and command boundary.
 
-Color, compositing, multicam, advanced audio, collaboration and broad effects remain
-future implementation work until the editing foundation is proven.
+Exit: supported media can be probed/imported/relinked with precise metadata and clear
+errors without decoding video for display. No Qt timeline or rendering pipeline yet.
+
+## Later work
+
+Minimal playback and Qt timeline; small MCP adapter with authorization/idempotency;
+interchange and explicit lossy conversion reporting. Audit compaction, independent-writer
+save conflicts, UUID remapping, more efficient history and crash durability need separate
+bounded work as their use cases arrive. Color, compositing, multicam, broad effects,
+advanced audio and collaboration remain out of scope.

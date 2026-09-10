@@ -1,11 +1,11 @@
 # Agentic NLE
 
 A professional open-source video editor designed for human editors and software agents.
-This repository implements **Milestone 1 — Headless Timeline Core**.
+This repository implements **Milestone 2 — Hardened Editing Sessions**.
 There is no graphical editor, decoder, playback engine, or MCP server yet.
 
 The C++20 core provides typed persistent identities, exact rational time, detached
-inspection snapshots, validated commands, undo/redo, and versioned native persistence.
+inspection snapshots, validated commands, grouped transactions, revisions, actor/operation attribution, bounded undo/redo, and versioned native persistence.
 Human UI, CLI, and future MCP adapters share the same command boundary.
 
 ## Build and test
@@ -38,6 +38,7 @@ then build targets **format** or **format-check**.
 ## Run the vertical slice
 
 ~~~powershell
+.\build\Debug\editor-cli.exe session-demo .\build\session-demo.nle
 .\build\Debug\editor-cli.exe demo .\build\demo.nle
 .\build\Debug\editor-cli.exe inspect .\build\demo.nle
 .\build\Debug\editor-cli.exe new .\build\example.nle "My project"
@@ -48,8 +49,8 @@ On Linux the executable is ./build/editor-cli.
 The demo creates video/audio tracks and a logical asset, inserts, moves, trims,
 splits and deletes a clip, exercises undo/redo, saves, reloads, and checks equality.
 It leaves two editable video clips and an empty audio track. It does not read demo.mov.
-**demo replaces its output file; new rejects existing files.**
-Undo/redo is session-local; separate CLI invocations start new sessions.
+**demo and session-demo replace their output files; new rejects existing files.**
+The session-demo previews seven commands, commits them as one edit, undoes/redoes the entire batch, and verifies save/load. Revisions and attribution persist. Undo/redo is session-local; separate CLI invocations start new sessions.
 
 ## Editing contract
 
@@ -60,21 +61,37 @@ Undo/redo is session-local; separate CLI invocations start new sessions.
 - Moves may change track/sequence. Trims explicitly set position and source range.
 - Splits retain the left ID and create a right ID. Delete does not ripple.
 - Invalid edits leave state and history unchanged. New edits discard redo.
+- Transactions preview privately; failed or stale batches publish nothing.
+- Track deletion/reordering and original/proxy relinking are undoable.
+- Editor entry points are synchronized; external edits should supply expected revision.
 - Snapshots are independent values; callers cannot mutate a live editor through them.
 
 See [architecture](docs/architecture.md), [native format](docs/native-format.md),
-[MCP boundary](docs/mcp-boundary.md), [roadmap](docs/roadmap.md), and
+[editing sessions](docs/editing-sessions.md), [MCP boundary](docs/mcp-boundary.md), [roadmap](docs/roadmap.md), and
 [decisions](docs/adr/README.md).
+
+## Benchmarks
+
+~~~powershell
+cmake -S . -B build -DNLE_BUILD_BENCHMARKS=ON
+cmake --build build --config Release
+.\build\Release\nle-benchmark.exe
+~~~
+
+See [performance and validation](docs/performance.md) for measured budgets and results.
 
 ## Current limits
 
-Whole-project snapshots make history costly for large projects. Time arithmetic rejects
-overflow, including some representable results with intermediates exceeding 64 bits.
-There is no signed offset, frame snapping, speed change, linked A/V editing, transition,
-track deletion/reordering, concurrent writer, or transaction API.
-Native files are capped at 16 MiB and 100,000 nested records. No historical schema
-migration or crash recovery is promised. Saves replace through an adjacent temporary
-file; power-loss durability is not guaranteed.
+History defaults to 100 entries/64 MiB of accounted payload, not an RSS ceiling.
+Transactions allow 1,024 staged commands; attribution caps at 10,000 operations.
+Oversized edits and full audit logs reject changes explicitly. Native files remain
+limited to 16 MiB/100,000 nested records; version 1 loads migrate to version 2 on save.
+Open transactions and undo history are not persisted.
 
-Original code is [MIT licensed](LICENSE). Future dependency choices must document their
-own distribution and licensing requirements.
+There is no independent-writer coordination, retry idempotency, authenticated attribution,
+audit compaction, power-loss durability or crash recovery. Use one authoritative Editor
+per project. Exact time arithmetic retains milestone 1's conservative overflow limits;
+signed offsets, snapping, speed changes, linked A/V edits and transitions remain deferred.
+
+Original code is [MIT licensed](LICENSE). No third-party runtime library is introduced.
+Future dependency choices must document distribution and licensing requirements.

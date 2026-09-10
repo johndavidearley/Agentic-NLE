@@ -1,86 +1,81 @@
 # Architecture
 
-Status: implemented for Milestone 1 unless marked future.
+Implemented through Milestone 2 — Hardened Editing Sessions.
 
 ~~~text
 Future Qt UI ----+
-CLI ------------+--> Editor::execute(Command) --> private project state
-Future MCP -----+            |
-                        validate candidate
-                        commit + history
-                             |
-                      detached snapshot()
-                             |
-                       native persistence
+CLI ------------+--> Editor / Transaction --> shared command application --> candidate
+Future MCP -----+          |                          |
+                     expected revision         validate invariants
+                           |                          |
+                     atomic commit + bounded undo history
+                           |
+                     detached snapshot + durable operation records
+                           |
+                     native version 2 persistence
 ~~~
 
-## Ownership
+## Boundaries
 
-src/core owns exact time and domain errors. src/project defines value DTOs, validation,
-and persistence. src/commands owns the editing session. src/cli is a domain client.
-There are no UI or protocol dependencies.
+src/core owns exact rational time and domain errors. src/project owns detached project
+DTOs, validation, attribution records and persistence. src/commands owns sessions,
+transactions and typed commands. src/cli proves both milestones without Qt or decoding.
+There are no protocol, media backend or GUI dependencies in the command engine.
 
-Editor owns state and undo/redo history. Commands form a closed typed variant.
-They resolve IDs in a candidate copy, modify it, sort clips, validate the result,
-allocate history, then commit by move. Failure leaves state, the ID watermark, and
-both histories unchanged. No-ops preserve history. Temporary internal lookup pointers
-are neither ownership nor persistent identity.
+Editor owns live state and immutable shared history entries. Its public entry points are
+mutex-protected. Transactions are private candidate copies with a weak owner identity
+and a base revision; their staged edits use exactly the same application function as
+direct commands. Both paths validate before publication. Failure preserves live state.
+See [editing sessions](editing-sessions.md) for lifecycle and concurrency guarantees.
 
-Construction from a snapshot validates it. Snapshots are deep detached copies;
-changing a DTO does not change its originating editor.
+History entries contain before/after content without duplicated audit logs. Commit
+prepares the updated project, operation record and bounded history before publishing.
+Undo/redo restore content and the highest allocation watermark, then append a new
+revision/attribution record. Inspection and notifications return detached values.
 
-## Identity and order
+## Identity, ordering and time
 
-Project IDs are nonzero random 64-bit values. Sequence, track, clip, and asset IDs
-are distinct C++ types holding nonzero project-local integers. External references
-must include project ID. A monotonic watermark allocates IDs across object types,
-independent of filenames or vector positions.
+Project IDs are random nonzero 64-bit identifiers. Object IDs are strong C++ types and
+project-local monotonic integers independent of paths and vector positions. Operation IDs
+use a separate typed namespace indexed by persisted revision. Published references must
+include project ID. Preview IDs are provisional until commit.
+[ADR 0008](adr/0008-identity-and-migration.md) defines single-authority identity and migration policy.
 
-Undo never rewinds that watermark. Redo restores original IDs. Save preserves the
-watermark even for undone creations; failed commands publish no identity.
-Cross-project duplication/merging needs a later UUID policy. Project IDs are probabilistic,
-not a collision-proof global namespace.
+Sequences, tracks and assets preserve order; ReorderTrack explicitly changes track order.
+Clips sort by exact position then ID. IDs remain stable during move, trim, relink and undo.
 
-Sequences, tracks, assets and locations preserve insertion order. Clips sort by exact
-position then ID. Duplicate identities and noncanonical clip ordering are rejected.
+RationalTime stores reduced nonnegative seconds as checked int64 fractions.
+One 24000/1001 fps frame is 1001/24000 seconds; a 48 kHz sample is 1/48000.
+Sequence frame duration preserves the intended grid independently of normalization.
+Comparison avoids overflowing cross products; arithmetic rejects unsupported intermediates.
+Signed offsets, snapping, timecode and speed changes remain deferred.
 
-## Time and semantics
+Clips use positive-duration half-open ranges at speed 1. Source bounds and media/track
+compatibility must hold, and same-track overlaps are rejected. Moves may cross sequences.
+Trims explicitly specify position and source range. Split preserves the left ID and
+allocates a right ID. DeleteClip does not ripple; DeleteTrack cascades clips but retains media.
 
-RationalTime stores reduced nonnegative seconds with a positive denominator.
-A 24000/1001 fps frame is 1001/24000; a 48 kHz sample is 1/48000.
-The sequence stores frame duration separately, preserving its intended grid.
-Positions are not automatically snapped. Comparison uses continued fractions;
-arithmetic checks overflow. Signed offsets, timecode, snapping and speed are deferred.
+## Media, provenance and persistence
 
-Ranges are half-open. Clips need positive duration, valid source bounds, compatible
-media/track kinds and no same-track overlap. At speed 1 source duration equals timeline duration.
+A logical asset owns ID, name, declared stream capability and duration. Original/proxy
+locators are replaceable. Empty locations represent offline media. Relinking is metadata
+editing, not probing or decoding.
 
-- Insert references an existing logical asset.
-- Move sets position and destination track, potentially across sequences.
-- Trim explicitly sets position and source range, allowing valid handle extension.
-- Split takes an absolute interior timeline position; left ID remains, right ID is new.
-- Delete removes the clip without shifting neighbors.
+Native version 2 adds revision/attribution to the application-owned model. Version 1 is
+explicitly migrated at load; unknown versions fail. No history is invented for imported
+old projects. Attribution records survive undo and save/load, but are not an authenticated
+or replayable event journal. Persistence consumes snapshots and atomically replaces a
+fully staged file during ordinary operation; power-loss durability is not promised.
+See [native format](native-format.md).
 
-## Media and persistence
+## Scaling and remaining boundaries
 
-A logical asset owns identity, name, declared stream capability and duration.
-Optional original/proxy locators are not identity. Empty locations mean offline media.
-Registration does not probe files. Generated media, relinking and decoding are deferred.
+Snapshot history remains O(project size) per retained edit. Default retention is 100 entries
+and 64 MiB of accounted payload. A single oversized history item is rejected, and callers
+can explicitly disable history. Each transaction stages at most 1,024 commands.
+The audit cap is 10,000 durable operations. There is no silent loss of audit metadata.
 
-The native model belongs to this application. Persistence consumes detached snapshots.
-Save validates before disk writes, stages beside the target and replaces the destination.
-History is session-local. See [native format](native-format.md).
-
-## History, transactions and scale
-
-History stores before/after snapshots; undo/redo preserve the highest allocation watermark.
-Real new edits clear redo. This costs O(project size) per history entry; full validation
-also adds work. Validation indexes media references; other storage is deliberately simple.
-
-Future grouped transactions can own a candidate session, apply current commands,
-preview a snapshot, and commit one history entry after checking a base revision.
-Rollback discards the candidate. Revisions, preview ID allocation, history limits,
-attribution and serialized concurrent access must exist before exposing agent transactions.
-
-No transaction API, thread safety, durable journal, or rendering guarantee is claimed.
-See [MCP boundary](mcp-boundary.md).
+The [benchmark](performance.md) measures 100-command transactions on 1,000/10,000 clips.
+This validates a bounded milestone workload, not professional-scale performance.
+Independent processes, distributed merges, authentication, idempotency, decoder/render
+determinism and UI integration remain outside this implementation.

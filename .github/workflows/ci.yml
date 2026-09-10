@@ -9,9 +9,20 @@ jobs:
       matrix:
         os: [ubuntu-24.04, windows-2022]
         config: [Debug, Release]
+        compiler: [default]
+        include:
+          - os: ubuntu-24.04
+            config: Debug
+            compiler: clang
+          - os: ubuntu-24.04
+            config: Release
+            compiler: clang
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Select Clang
+        if: matrix.compiler == 'clang'
+        run: echo "CXX=clang++" >> "$GITHUB_ENV"
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }}
       - name: Build
@@ -27,3 +38,11 @@ jobs:
       - run: sudo apt-get install -y clang-format-19
       - run: cmake -S . -B build -DCLANG_FORMAT=clang-format-19
       - run: cmake --build build --target format-check
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug -DNLE_SANITIZERS=ON
+      - run: cmake --build build --parallel
+      - run: ctest --test-dir build --output-on-failure

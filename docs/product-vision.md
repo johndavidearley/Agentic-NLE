@@ -12,7 +12,7 @@ buttons or own a separate edit representation. MCP is one adapter alongside UI a
 
 Milestone 1 proves the headless model. Later work can add probing, playback, Qt,
 interchange, and a small MCP surface. Automated results should remain editable and
-attributable to concrete operations. Durable provenance and reproducible media execution
+attributable to concrete operations. Milestone 2 persists revisions and actor/operation metadata. Complete replayable provenance and reproducible media execution
 are future work; this bootstrap provides deterministic editing and persistent state.
 
 Color, compositing, multicam, AI generation, advanced audio, cloud collaboration,

@@ -1,34 +1,41 @@
-# MCP boundary (design only)
+# MCP boundary
 
-MCP translates wire requests into domain commands and returns detached snapshots.
-It does not drive the GUI or become the internal command bus.
-The [official MCP architecture](https://modelcontextprotocol.io/specification/2025-11-25/architecture/index)
-informs protocol concerns; SDK, transport and version negotiation remain outside the core.
+Protocol adapter design only; the headless session primitives now exist.
+
+MCP will translate wire requests into the same typed commands and transactions used by
+the human UI and CLI. SDK, transport and protocol negotiation remain outside nle_core.
+No MCP server or GUI automation is implemented.
 
 | Proposed capability | Domain mapping |
 | --- | --- |
-| project.get / timeline.inspect | Editor::snapshot, optionally filtered |
+| project.get / timeline.inspect | Editor::snapshot, including revision |
 | project.save | Snapshot plus authorized persistence |
-| timeline.insert / move / trim / split / delete | Existing typed commands |
-| media.list / media.get | Snapshot media library |
-| media.import | Future metadata probe then RegisterMedia |
-| transaction.begin / preview / commit / rollback | Future candidate session and revision check |
+| timeline.insert / move / trim / split / delete | Existing commands with expected_revision |
+| timeline.track.delete / reorder | DeleteTrack / ReorderTrack |
+| media.list / get | Detached snapshot media |
+| media.import | Future metadata probe, then RegisterMedia |
+| media.relink | RelinkMedia |
+| transaction.begin / preview / commit / rollback | Editor::begin, Transaction::preview, Editor::commit, Transaction::rollback |
+| change notification | Editor::changes_since(cursor) |
 
-Wire IDs should use decimal strings plus kind and project ID to avoid JavaScript
-integer precision loss. The adapter converts to strong types. Rational value/rate
-fields should also preserve integer precision. Never implicitly round floating seconds.
+The adapter must supply actor context and expected revision for external writes.
+RevisionConflict identifies stale requests. The Editor serializes its own entry points;
+transactions have single-owner lifetimes and must be stored in an adapter-owned session
+registry. Failed or stale batches close without publishing partial state.
 
-Read-only resources can use URIs such as nle://project/{project_id}/sequence/{sequence_id}.
-Return snapshot DTOs and a future revision token, never mutable state.
+Wire IDs should use decimal strings, object kind and project ID to preserve integer
+precision. Rational times must retain exact numerator/denominator values.
+Preview IDs are provisional and must never become shared durable references until commit.
 
-Before enabling writes, add serialized session access, expected-revision checks,
-idempotency keys, operation IDs and actor attribution. Transactions preview candidates
-and commit one undoable item; rollback publishes nothing. Define preview ID allocation
-and stale-base behavior before implementation. None of these future guarantees is
-claimed by the bootstrap.
+Resources such as nle://project/{project_id}/sequence/{sequence_id} return detached state
+and revision. Poll changes_since or translate its records into protocol notifications.
+Attribution is caller-supplied metadata; authentication must determine who may claim an actor.
 
-Map errors into distinguishable malformed-argument, invalid-edit, stale-revision,
-permission and internal failures. Do not expose stack traces or unrestricted filesystem
-access. Remote access requires an explicit authentication and authorization design.
-Protocol tests must prove the same commands have the same state/history effects as UI
-and CLI clients. Protocol testing supplements core invariant tests.
+Before exposing a server, implement transport authentication/authorization, filesystem
+scoping, request idempotency, session expiry and structured error mapping. File writes
+remain single-authority; independent process saves need conflict handling.
+Protocol tests must prove the same edit requests have the same state and history effects
+as local callers. Never expose stack traces or arbitrary filesystem access as tool output.
+
+The [official MCP architecture](https://modelcontextprotocol.io/specification/2025-11-25/architecture/index)
+informs protocol boundaries; it does not define the internal project model.
