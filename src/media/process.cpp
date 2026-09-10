@@ -24,7 +24,7 @@ std::string path_utf8(const std::filesystem::path &path) {
     return {text.begin(), text.end()};
 }
 bool stop_requested(const ProcessOptions &options) {
-    return options.stop && options.stop->load(std::memory_order_relaxed);
+    return options.stop && options.stop->get().load(std::memory_order_relaxed);
 }
 namespace {
 std::filesystem::path resolve_executable(const std::filesystem::path &requested) {

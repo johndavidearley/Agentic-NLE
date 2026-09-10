@@ -125,16 +125,16 @@ void process(const std::filesystem::path &helper) {
     rejects([&] { (void)run_process(helper, {"sleep"}, {std::chrono::milliseconds(50)}); });
     rejects([&] { (void)run_process(helper, {"flood"}, {std::chrono::seconds(5), 128}); });
     rejects([&] { (void)run_process(helper.parent_path() / "missing-executable-123", {}); });
-    auto stop = std::make_shared<std::atomic_bool>(false);
+    std::atomic_bool stop = false;
     std::thread cancel([&] {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        stop->store(true, std::memory_order_relaxed);
+        stop.store(true, std::memory_order_relaxed);
     });
     rejects([&] {
-        (void)run_process(helper, {"sleep"}, {std::chrono::seconds(5), 1024, stop});
+        (void)run_process(helper, {"sleep"}, {std::chrono::seconds(5), 1024, std::cref(stop)});
     });
     rejects([&] {
-        (void)run_process(helper, {"echo"}, {std::chrono::seconds(5), 1024, stop});
+        (void)run_process(helper, {"echo"}, {std::chrono::seconds(5), 1024, std::cref(stop)});
     });
     cancel.join();
 }
