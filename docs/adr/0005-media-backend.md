@@ -1,6 +1,6 @@
 # ADR 0005: Defer media backend and desktop selection
 
-Status: probing superseded by ADR 0009; playback/UI selection remains deferred. Date: 2026-09-09.
+Status: probing superseded by ADR 0009; bounded playback/UI selected in ADR 0010. Date: 2026-09-09.
 
 Current needs are logical assets, declared kinds/durations and optional original/proxy
 locators. Offline media is valid. Choose decoding/playback after measuring seek accuracy,

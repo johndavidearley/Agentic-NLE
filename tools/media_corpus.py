@@ -23,3 +23,8 @@ subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i",
 subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24",
                 "-i", str(root / "tone.wav"), "-t", "2", "-c:v", "ffv1", "-c:a", "pcm_s16le",
                 "-y", str(root / "av.mkv")], check=True)
+
+# Deliberately irregular video timestamps: 12 fps in the first second, ~5 fps later.
+subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=96x64:rate=60:duration=2",
+                "-vf", "select='if(lt(t,1),not(mod(n,5)),not(mod(n,12)))'", "-fps_mode", "vfr",
+                "-c:v", "ffv1", "-y", str(root / "vfr.mkv")], check=True)

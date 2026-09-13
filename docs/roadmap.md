@@ -40,22 +40,41 @@ offline sources, subprocess failure, timeout and cancellation have tests. Debug/
 verification is on Windows. CI configuration also runs the corpus on Linux and both macOS
 architectures; those executions remain to be verified by CI.
 
-## Recommended Milestone 4 — Minimal Playback Vertical Slice
+## Milestone 4 — Minimal Playback Vertical Slice (complete)
 
-Evaluate seeking and A/V synchronization on the shared corpus before choosing the playback
-adapter. Establish a small read-only preview transport (open, play/pause, seek, time position)
-and a minimal Qt timeline shell using the existing command API for edits. Resolve source
-start offsets, variable-frame-rate lookup, error reporting and offline behavior explicitly.
-Keep the native model authoritative and document dependency/build licensing before adoption.
+An optional Qt Widgets desktop imports media in the background, appends clips as a grouped
+transaction, previews a sequence, and exposes trim/position, split, delete, undo/redo and
+native save/load. A headless preview plan maps exact timeline/source ranges; a supervised
+Qt Multimedia worker provides open, play/pause, seek and time observations.
 
-Exit: one imported sequence can be inspected, played and sought with measured timing and
-bounded cancellation; a UI edit uses the same validated undoable commands as the CLI.
-Rendering/export, broad effects and a large MCP surface remain later work.
+The selected Qt/FFmpeg adapter was exercised against audio, fractional-rate video, embedded
+A/V and VFR fixtures. Offset/unknown video origins and multiple populated tracks reject
+preview explicitly. Missing/changed sources, decode/start failure, hung workers, rapid seek
+replacement, cuts and blank/silent gaps are covered. All edits keep the model authoritative.
+[ADR 0010](adr/0010-desktop-playback.md) records licensing, alternatives and bounded adoption.
+
+Exit demonstrated on Windows in Debug/Release: imported media plays/seeks, decoded timestamp
+intervals cover corpus seeks, cancellation is measured, and desktop edits share validated
+undoable commands. The deployed Windows runtime also passes the desktop smoke test.
+[Playback evaluation](playback-evaluation.md) records exact results and limits. CI is
+configured for Linux and macOS (Apple Silicon and Intel); those executions remain unverified
+from this workspace. This slice does not promise seamless cuts or physical A/V sync.
+
+## Recommended Milestone 5 — Source Origins and Precision Seeking
+
+Define a common source-time convention that preserves stream offsets, with explicit native
+migration and relink behavior. Build decoded-frame lookup and stepping on CFR/VFR fixtures,
+then measure seek correctness and A/V scheduling over longer clips. Extend the existing
+preview adapter only after evidence supports the new source-time contract.
+
+Exit: nonzero/unequal stream starts preserve their intended alignment; frame stepping and
+seek selection are demonstrated on timestamped fixtures; old projects migrate predictably.
+Independent track mixing, export and a broad effects system remain separate work.
 
 ## Later work
 
-Minimal playback and Qt timeline; small MCP adapter with authorization/idempotency;
-interchange and explicit lossy conversion reporting. Audit compaction, independent-writer
-save conflicts, UUID remapping, more efficient history and crash durability need separate
-bounded work as their use cases arrive. Color, compositing, multicam, broad effects,
-advanced audio and collaboration remain out of scope.
+Seamless/multi-track playback; small MCP adapter with authorization/idempotency; interchange
+and explicit lossy conversion reporting. Audit compaction, independent-writer save conflicts,
+UUID remapping, more efficient history and crash durability need separate bounded work as
+their use cases arrive. Color, compositing, multicam, broad effects, advanced audio and
+collaboration remain out of scope.

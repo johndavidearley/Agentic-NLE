@@ -1,9 +1,10 @@
 # Agentic NLE
 
 A professional open-source video editor designed for human editors and software agents.
-This repository implements **Milestone 2 — Hardened Editing Sessions**.
-There is no graphical editor, playback engine, or MCP server yet. An optional ffprobe
-adapter imports real source metadata through the existing command system.
+This repository implements **Milestone 4 — Minimal Playback Vertical Slice**.
+An optional Qt desktop imports media, previews a sequence, and provides command-based
+trim, position, split, delete and undo/redo controls. The headless CLI remains available.
+There is no export pipeline or MCP server yet.
 
 The C++20 core provides typed persistent identities, exact rational time, detached
 inspection snapshots, validated commands, grouped transactions, revisions, actor/operation attribution, bounded undo/redo, and versioned native persistence.
@@ -48,7 +49,23 @@ Warnings are errors. Formatting uses clang-format 19. Set
 -DCLANG_FORMAT=/path/to/clang-format when configuring if it is not on PATH,
 then build targets **format** or **format-check**.
 
-## Run the vertical slice
+## Desktop preview
+
+See [desktop setup and use](docs/desktop-preview.md) for the optional Qt 6.8+ build
+(Qt 6.10.3 is pinned for the tested baseline). On the configured Windows development machine:
+
+~~~powershell
+.\tools\run-desktop.ps1
+~~~
+
+Preview supports one populated track with embedded audio, cuts, gaps, play/pause and seek.
+It reports offline, changed and unsupported sources. Nonzero source origins, independent
+track mixing and seamless cuts remain deferred. [Playback evaluation](docs/playback-evaluation.md)
+records measured seeking/cancellation and the limits of the A/V timing evidence.
+Desktop CI is configured for Windows, Linux, and macOS on Apple Silicon and Intel;
+local desktop validation is Windows only.
+
+## Run the headless vertical slice
 
 ~~~powershell
 .\build\Debug\editor-cli.exe session-demo .\build\session-demo.nle
@@ -121,6 +138,8 @@ audit compaction, power-loss durability or crash recovery. Use one authoritative
 per project. Exact time arithmetic retains milestone 1's conservative overflow limits;
 signed offsets, snapping, speed changes, linked A/V edits and transitions remain deferred.
 
-Original code is [MIT licensed](LICENSE). No third-party runtime library is linked.
-The optional ffprobe executable retains its own build-specific license; see
-[ADR 0009](docs/adr/0009-media-probing.md). No media tools are bundled.
+Original code is [MIT licensed](LICENSE). The headless core links no third-party runtime
+library. The optional ffprobe executable retains its own build-specific license; see
+[ADR 0009](docs/adr/0009-media-probing.md). The optional desktop dynamically links Qt and
+uses Qt's FFmpeg backend; dependency licenses and distribution obligations are recorded in
+[ADR 0010](docs/adr/0010-desktop-playback.md). No dependency binaries are committed.

@@ -74,3 +74,79 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
+
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            qt-host: windows
+            qt-arch: win64_msvc2022_64
+          - os: ubuntu-24.04
+            qt-host: linux
+            qt-arch: linux_gcc_64
+          - os: macos-15
+            qt-host: mac
+            qt-arch: clang_64
+          - os: macos-15-intel
+            qt-host: mac
+            qt-arch: clang_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Linux runtime and fixture tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) -exec grep -l 'dl.google.com/linux/chrome' {} + | xargs -r sudo rm -f
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libgl1 libegl1 libxkbcommon0 libfontconfig1 libxcb-cursor0 libpulse0
+      - name: Install Windows fixture tools
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg --yes --no-progress
+      - name: Install macOS fixture tools
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - name: Install pinned Qt SDK
+        run: |
+          python -m pip install aqtinstall==3.3.0
+          python -m aqt install-qt ${{ matrix.qt-host }} desktop 6.10.3 ${{ matrix.qt-arch }} --outputdir build-qt --modules qtmultimedia --archives qtbase
+      - name: Locate Qt prefix
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          configs = list(Path('build-qt/6.10.3').glob('*/lib/cmake/Qt6/Qt6Config.cmake'))
+          assert len(configs) == 1, configs
+          prefix = configs[0].resolve().parents[3]
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              env.write(f'CMAKE_PREFIX_PATH={prefix.as_posix()}\n')
+      - name: Record probe backend
+        run: ffprobe -version
+      - name: Configure desktop and media corpus
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNLE_BUILD_DESKTOP=ON -DNLE_MEDIA_INTEGRATION=ON
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Verify Windows runtime deployment
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --target deploy-desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          $env:QT_PLUGIN_PATH = ''
+          & ./build/Release/nle-qt-desktop-tests.exe "$PWD/build/Release/nle-preview-worker.exe" (Get-Command ffprobe).Source "$PWD/build/media-corpus" "$PWD/build/deployed-smoke.nle" "$PWD/build/desktop-deployed.png"
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            build/playback-evaluation-*.json
+            build/desktop-*.png
+            build/Testing/Temporary/LastTest.log

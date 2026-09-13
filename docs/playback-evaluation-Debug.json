@@ -1,0 +1,50 @@
+[
+  {
+    "av_pairs": 0,
+    "cancel_ms": 20,
+    "file": "tone.wav",
+    "load_ms": 192,
+    "max_av_delivery_skew_us": 0,
+    "seek_frame_end_us": -1,
+    "seek_frame_pts_us": -1,
+    "seek_ms": 205,
+    "vfr_between_frame_pts_us": -1,
+    "vfr_between_frame_seek_us": -1
+  },
+  {
+    "av_pairs": 0,
+    "cancel_ms": 18,
+    "file": "video.mp4",
+    "load_ms": 229,
+    "max_av_delivery_skew_us": 0,
+    "seek_frame_end_us": 500500,
+    "seek_frame_pts_us": 467133,
+    "seek_ms": 241,
+    "vfr_between_frame_pts_us": -1,
+    "vfr_between_frame_seek_us": -1
+  },
+  {
+    "av_pairs": 7,
+    "cancel_ms": 20,
+    "file": "av.mkv",
+    "load_ms": 226,
+    "max_av_delivery_skew_us": 17385,
+    "seek_frame_end_us": 541000,
+    "seek_frame_pts_us": 500000,
+    "seek_ms": 227,
+    "vfr_between_frame_pts_us": -1,
+    "vfr_between_frame_seek_us": -1
+  },
+  {
+    "av_pairs": 0,
+    "cancel_ms": 19,
+    "file": "vfr.mkv",
+    "load_ms": 228,
+    "max_av_delivery_skew_us": 0,
+    "seek_frame_end_us": 516000,
+    "seek_frame_pts_us": 500000,
+    "seek_ms": 233,
+    "vfr_between_frame_pts_us": 583000,
+    "vfr_between_frame_seek_us": 550000
+  }
+]

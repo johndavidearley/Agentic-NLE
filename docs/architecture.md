@@ -1,9 +1,9 @@
 # Architecture
 
-Implemented through Milestone 2 — Hardened Editing Sessions.
+Implemented through Milestone 4 — Minimal Playback Vertical Slice.
 
 ~~~text
-Future Qt UI ----+
+Qt desktop -----+
 CLI ------------+--> Editor / Transaction --> shared command application --> candidate
 Future MCP -----+          |                          |
                      expected revision         validate invariants
@@ -21,6 +21,9 @@ src/core owns exact rational time and domain errors. src/project owns detached p
 DTOs, validation, attribution records and persistence. src/commands owns sessions,
 transactions and typed commands. src/media owns the optional external ffprobe adapter and supervised process runner.
 src/cli exercises editing and source discovery without Qt or display decoding.
+src/playback builds immutable preview plans from detached snapshots and maps rational
+timeline positions to source ranges without Qt. src/desktop owns Widgets, asynchronous
+import and transport supervision. Its separate worker owns Qt Multimedia and decoding.
 There are no protocol, media backend or GUI dependencies in the command engine.
 
 Editor owns live state and immutable shared history entries. Its public entry points are
@@ -72,6 +75,28 @@ or replayable event journal. Persistence consumes snapshots and atomically repla
 fully staged file during ordinary operation; power-loss durability is not promised.
 See [native format](native-format.md).
 
+## Desktop and read-only preview
+
+The desktop's import, append, trim/position, split, delete and undo/redo actions all use
+Editor or Transaction with human attribution and expected revisions. Probe work runs
+outside the UI thread; a changed project/revision rejects its stale result. Saving uses
+native persistence. No UI state, active transport or undo stack is needed to reopen a project.
+
+A validated preview plan is a detached, revision-labelled copy of one populated track.
+The Qt transport sends a source path/range to a separate worker over a private local socket.
+The worker uses Qt Multimedia's FFmpeg backend with software decoding, emits default-device
+audio, and returns timestamped preview images and position observations. Cancel or seek
+invalidates old output and kills the worker; rapid seeks coalesce to the latest request.
+Local socket transfer limits, load deadlines and a playback watchdog bound failures.
+The worker is process isolation, not a security sandbox.
+
+Core edit times remain exact fractions. The adapter floors seek times to milliseconds;
+VFR lookup follows decoded timestamps. Nonzero or unknown video/A/V starts are rejected
+explicitly; unknown audio-only starts are permitted. Preview includes cuts and blank/silent
+gaps, with loading pauses at cuts. It does not mix separate tracks or guarantee sample-
+accurate audio cuts. See [desktop preview](desktop-preview.md), [evaluation](playback-evaluation.md)
+and [ADR 0010](adr/0010-desktop-playback.md).
+
 ## Scaling and remaining boundaries
 
 Snapshot history remains O(project size) per retained edit. Default retention is 100 entries
@@ -82,4 +107,4 @@ The audit cap is 10,000 durable operations. There is no silent loss of audit met
 The [benchmark](performance.md) measures 100-command transactions on 1,000/10,000 clips.
 This validates a bounded milestone workload, not professional-scale performance.
 Independent processes, distributed merges, authentication, idempotency, decoder/render
-determinism and UI integration remain outside this implementation.
+determinism, seamless playback and advanced timeline interaction remain outside this implementation.
