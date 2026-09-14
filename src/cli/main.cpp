@@ -10,12 +10,17 @@ namespace {
 using namespace nle;
 void inspect_source(const SourceMetadata &source) {
     std::cout << "  container=" << source.container << " bytes=" << source.byte_size
-              << " probe=" << source.probe_version << '\n';
+              << " probe=" << source.probe_version << " clock="
+              << (source.time_mode == SourceTimeMode::SharedOrigin ? "shared-origin"
+                                                                   : "legacy-per-stream")
+              << '\n';
     for (const auto &stream : source.streams) {
         const auto duration = stream_duration(stream, source.container_duration);
         std::cout << "  stream=" << stream.index << " codec=" << stream.codec
                   << " duration=" << duration.value() << '/' << duration.rate()
-                  << (stream.duration_ticks == -1 ? " container-estimate" : " stream-ticks")
+                  << (stream.duration_ticks != -1                  ? " stream-ticks"
+                      : stream.duration_estimate != RationalTime{} ? " stream-tag-estimate"
+                                                                   : " container-estimate")
                   << " time-base=" << stream.time_base.value() << '/' << stream.time_base.rate();
         if (stream.kind == TrackKind::Video)
             std::cout << " size=" << stream.width << 'x' << stream.height
@@ -23,6 +28,10 @@ void inspect_source(const SourceMetadata &source) {
                       << stream.frame_duration.rate();
         else
             std::cout << " sample-rate=" << stream.sample_rate << " channels=" << stream.channels;
+        if (source.time_mode == SourceTimeMode::SharedOrigin) {
+            const auto offset = stream_offset(source, stream);
+            std::cout << " source-offset=" << offset.value() << '/' << offset.rate();
+        }
         std::cout << '\n';
     }
 }

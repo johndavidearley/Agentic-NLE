@@ -1,8 +1,9 @@
 # Media probing and source metadata
 
-Milestone 3 adds local media discovery, command-based import, verified original relinking,
-and read-only source availability inspection. No graphical timeline, playback or frame
-rendering is introduced. ffprobe may inspect codec headers while discovering streams.
+Milestone 3 introduced local media discovery, command-based import, verified original
+relinking and read-only source availability. Milestone 5 extends the source clock and frame
+lookup. The discovery layer remains independent of the optional desktop and playback worker.
+ffprobe may inspect codec headers while discovering streams.
 
 ## CLI
 
@@ -38,18 +39,28 @@ For example, 96,000 samples at 48,000 Hz are exactly 2 seconds; a reported avera
 30000/1001 fps becomes 1001/30000 seconds per frame. Negative source start ticks are
 preserved separately from the nonnegative timeline. Unknown starts remain explicitly unknown.
 
-The usable asset duration is the minimum of its audio/video stream durations. When a stream
-has no duration ticks, the container decimal duration is used as an **estimate**, parsed
-without binary floating point. Inspection labels each duration stream-ticks or
-container-estimate. Missing both forms of duration rejects import. Container rounding is
-not exact sample/frame evidence; overflow also rejects rather than silently rounding.
+New imports use a shared source clock when A/V starts are known, or for a single audio stream
+whose unknown start can be treated as zero. Source zero is the earliest stream start; unequal
+starts become exact offsets. The usable duration is the union of the stream spans. Signed
+container start timestamps remain separate metadata for the playback adapter.
+
+Integer stream duration takes priority. Where unavailable, a Matroska stream DURATION tag is
+an estimate; subtracting its stream start converts that end timestamp into a span. Otherwise
+a decimal container duration supplies an estimate. Matroska container duration also denotes
+an end timestamp, so the shared source origin is subtracted. Inspection distinguishes
+stream-ticks, stream-tag-estimate and container-estimate. Estimates are not decoded-frame
+or sample evidence. Missing duration and checked arithmetic overflow reject import.
+
+Native versions 1-3 preserve their prior meaning on load. Version 3 assets retain the explicit
+legacy per-stream clock and minimum-duration rule; they do not acquire offsets silently.
+Verified relink preserves that clock mode. Re-import as a new asset establishes the new clock
+without rewriting old clip coordinates. See [native format](native-format.md) for migration.
 
 Attached pictures, subtitles and data streams are excluded from editable stream capability.
-Average/nominal rates are metadata only: variable-frame-rate sample mapping is not implemented.
-Stream start offsets do not yet implement A/V alignment. Current clip source ranges refer
-to each stream's normalized beginning; the minimum duration policy ensures bounds under
-that convention. Rotation, color/HDR, channel layouts, stream selection, edit-list semantics,
-frame indexes, decoding validation and playback synchronization remain deferred.
+Average/nominal rates remain metadata. [Frame lookup](precision-evaluation.md) uses decoded
+presentation timestamps, including VFR, rather than average-rate arithmetic. Rotation,
+color/HDR, channel layouts, explicit stream selection and general edit-list interpretation
+remain outside the validated preview slice.
 
 ## Relinking and availability
 
@@ -58,7 +69,9 @@ Editor, then submit with the revision captured before probing. Transactions, fai
 commit behavior, attribution, history limits and undo/redo use the existing command path.
 
 ReplaceMediaSource preserves MediaId and all clip references, requires the same audio/video
-kind, and validates every existing clip against the replacement duration. Short replacements
+kind and retains the existing source clock mode. A shared-clock asset cannot be replaced by
+metadata that cannot establish a shared clock. Every existing clip is checked against the
+replacement duration. Short replacements
 that invalidate clips are rejected atomically. This checks compatibility, not content identity:
 a different recording of sufficient length and matching kind can be explicitly relinked.
 
@@ -83,7 +96,7 @@ Network URLs, streaming playlists and folders are outside scope.
 
 Processes run without a shell, with null stdin, captured stdout/stderr and no visible window.
 Default deadline is 30 seconds; captured output is limited to 1 MiB. C++ callers can cancel
-with a stop token. Windows uses a job with kill-on-close and restricted handle inheritance;
+with a shared atomic cancellation flag. Windows uses a job with kill-on-close and restricted handle inheritance;
 POSIX uses spawn, a process group and termination/reaping on failure. Timeout, cancellation,
 nonzero exit, malformed output and resource-limit errors publish no edit. This is process
 supervision, not an OS security sandbox or a whole-process memory ceiling. Use trusted tools.
@@ -116,3 +129,6 @@ integers, fractions, duplicate fields/indices, unavailable timing, overflow and 
 Local results and backend configuration: [media evaluation](media-evaluation.txt).
 The backend decision and limits of the FFmpeg/GStreamer comparison are recorded in
 [ADR 0009](adr/0009-media-probing.md).
+
+Milestone 5 adds offset, negative-origin, B-frame and longer A/V fixtures. Its decoded-frame
+and scheduling evidence is recorded in [precision evaluation](precision-evaluation.md).

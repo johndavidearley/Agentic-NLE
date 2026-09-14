@@ -71,6 +71,14 @@ int main(int argc, char **argv) {
         window.setPlayhead({1, 2});
         image = false;
         CHECK(wait_for([&] { return !window.transport().loading() && image; }));
+        const auto beforeStepping = window.snapshot();
+        window.findChild<QPushButton *>("nextFrameButton")->click();
+        CHECK(wait_for([&] { return !window.transport().loading(); }));
+        CHECK((window.transport().position() > RationalTime{1, 2}));
+        window.findChild<QPushButton *>("previousFrameButton")->click();
+        CHECK(wait_for([&] { return !window.transport().loading(); }));
+        CHECK((window.transport().position() == RationalTime{1, 2}));
+        CHECK(window.snapshot() == beforeStepping);
         window.findChild<Timeline *>()->selected(
             window.snapshot().sequences[0].tracks[0].clips.front().id);
         QCoreApplication::processEvents();

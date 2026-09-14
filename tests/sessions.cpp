@@ -308,7 +308,7 @@ void migration() {
     CHECK(migrated.next_id == 9);
     CHECK(migrated.revision == 0);
     CHECK(migrated.operations.empty());
-    CHECK(serialize(migrated).starts_with("NLE_PROJECT 3"));
+    CHECK(serialize(migrated).starts_with("NLE_PROJECT 4"));
     Editor editor(migrated);
     auto batch = editor.begin(agent(0));
     const auto right = *batch.execute(SplitClip{ClipId{5}, {5}}).clip;

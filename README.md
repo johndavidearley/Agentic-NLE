@@ -1,9 +1,10 @@
 # Agentic NLE
 
 A professional open-source video editor designed for human editors and software agents.
-This repository implements **Milestone 4 — Minimal Playback Vertical Slice**.
+This repository implements **Milestone 5 — Source Origins and Precision Seeking**.
 An optional Qt desktop imports media, previews a sequence, and provides command-based
-trim, position, split, delete and undo/redo controls. The headless CLI remains available.
+trim, position, split, delete and undo/redo controls. Paused seeks and frame stepping use a
+decoded-frame index, and shared source clocks preserve stream offsets. The headless CLI remains available.
 There is no export pipeline or MCP server yet.
 
 The C++20 core provides typed persistent identities, exact rational time, detached
@@ -59,9 +60,10 @@ See [desktop setup and use](docs/desktop-preview.md) for the optional Qt 6.8+ bu
 ~~~
 
 Preview supports one populated track with embedded audio, cuts, gaps, play/pause and seek.
-It reports offline, changed and unsupported sources. Nonzero source origins, independent
-track mixing and seamless cuts remain deferred. [Playback evaluation](docs/playback-evaluation.md)
-records measured seeking/cancellation and the limits of the A/V timing evidence.
+It reports offline, changed and unsupported sources. Known shared source origins, including
+verified negative-origin sources, preserve relative A/V timing. Independent track mixing and
+seamless cuts remain deferred. [Precision evaluation](docs/precision-evaluation.md) records
+frame selection, stepping, cancellation and decoder-delivery timing limits.
 Desktop CI is configured for Windows, Linux, and macOS on Apple Silicon and Intel;
 local desktop validation is Windows only.
 
@@ -130,16 +132,17 @@ See [performance and validation](docs/performance.md) for measured budgets and r
 History defaults to 100 entries/64 MiB of accounted payload, not an RSS ceiling.
 Transactions allow 1,024 staged commands; attribution caps at 10,000 operations.
 Oversized edits and full audit logs reject changes explicitly. Native files remain
-limited to 16 MiB/100,000 nested records; versions 1 and 2 migrate to version 3 on save.
+limited to 16 MiB/100,000 nested records; versions 1–3 migrate to version 4 on save without changing old clip timing.
 Open transactions and undo history are not persisted.
 
 There is no independent-writer coordination, retry idempotency, authenticated attribution,
 audit compaction, power-loss durability or crash recovery. Use one authoritative Editor
 per project. Exact time arithmetic retains milestone 1's conservative overflow limits;
-signed offsets, snapping, speed changes, linked A/V edits and transitions remain deferred.
+negative edit positions, snapping, speed changes, linked A/V edits and transitions remain deferred.
 
 Original code is [MIT licensed](LICENSE). The headless core links no third-party runtime
 library. The optional ffprobe executable retains its own build-specific license; see
 [ADR 0009](docs/adr/0009-media-probing.md). The optional desktop dynamically links Qt and
 uses Qt's FFmpeg backend; dependency licenses and distribution obligations are recorded in
-[ADR 0010](docs/adr/0010-desktop-playback.md). No dependency binaries are committed.
+[ADR 0010](docs/adr/0010-desktop-playback.md) and
+[ADR 0011](docs/adr/0011-source-origins-and-frame-index.md). No dependency binaries are committed.

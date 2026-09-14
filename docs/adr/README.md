@@ -25,3 +25,5 @@ attribution prerequisites in 0006 are now implemented as described in 0007.
 Milestone 3: [0009 Optional ffprobe discovery adapter](0009-media-probing.md) — accepted.
 
 Milestone 4: [0010 Qt desktop and isolated preview worker](0010-desktop-playback.md) — accepted.
+
+Milestone 5: [0011 Shared source origins and decoded frame lookup](0011-source-origins-and-frame-index.md) — accepted.

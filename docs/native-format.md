@@ -1,71 +1,69 @@
-# Native project format, version 3
+# Native project format, version 4
 
-The writer emits version 3. The reader explicitly accepts versions 1, 2 and 3.
-The earlier grammars are preserved in [version 1](native-format-v1.md) and
-[version 2](native-format-v2.md). Unknown versions fail.
+The writer emits version 4. The reader accepts versions 1–4. Historical grammars remain
+in [version 1](native-format-v1.md), [version 2](native-format-v2.md) and
+[version 3](native-format-v3.md). Unknown versions reject.
 
-Version 3 retains the complete version 2 grammar and adds a SOURCE block after
-**each asset's LOCATION records**, including assets with no probed metadata:
+Version 4 retains version 3 and adds a CLOCK record after each present source's METADATA
+record, plus an estimated duration pair at the end of every STREAM record:
 
 ~~~text
-NLE_PROJECT 3
-PROJECT project_id next_id "name"
-MEDIA N
-  N * ASSET id kind "name" duration_value duration_rate L
-      L * LOCATION role "uri"
-      SOURCE present
-      if present == 1:
-        METADATA "container" "probe_version" "probe_configuration" byte_size container_value container_rate S
-        S * STREAM index kind "codec" time_base_value time_base_rate duration_ticks start_known start_ticks frame_value frame_rate nominal_value nominal_rate width height sample_rate channels
-SEQUENCES ...
-AUDIT ...
-END
+SOURCE present
+if present == 1:
+  METADATA "container" "probe_version" "probe_configuration" byte_size container_value container_rate S
+  CLOCK mode container_start_known [signed_start_value positive_start_rate]
+  S * STREAM index kind "codec" time_base_value time_base_rate duration_ticks start_known start_ticks frame_value frame_rate nominal_value nominal_rate width height sample_rate channels estimate_value estimate_rate
 ~~~
 
-Flags present/start_known must be 0 or 1. Stream kind is video=0 or audio=1.
-Stream indices are unique source-local unsigned 32-bit descriptors, not project IDs.
-All time pairs are nonnegative rational seconds with a positive denominator.
-Unknown average/nominal frame duration or container duration is 0/1.
-The frame pairs represent seconds per frame, not frames per second.
-Duration ticks are positive signed 64-bit integers or -1 for unavailable.
-Start ticks are signed 64-bit integers; if start_known is 0 they must be zero.
+CLOCK mode is legacy-per-stream=0 or shared-origin=1. The optional signed pair appears only
+when container_start_known is 1. Stream start ticks are signed; durations, clip positions,
+source ranges and other time pairs remain nonnegative exact rational seconds. Zero estimate
+means unavailable. Flags, enums, rational arithmetic and existing record limits are validated.
 
-A source contains 1–64 usable audio/video streams and a positive byte size.
-Video requires nonzero width/height and zero audio fields. Audio requires nonzero
-sample rate/channels and zero dimensions/frame-duration fields. Text uses the
-existing nonempty, 4096-byte, quoted, control-free grammar.
+## Shared source clock
 
-The effective duration is the minimum duration across usable streams, with a
-container-duration estimate substituted only where stream duration is unavailable.
-Integer stream duration is duration_ticks * time_base with checked, reduced arithmetic.
-Every effective stream duration must be positive. The logical asset kind/duration
-must match its source metadata, and an original locator must exist.
-See [media probing](media-probing.md) for precision and stream-start limitations.
+For shared-origin assets, source zero is the earliest declared A/V stream start. Each stream
+retains its exact offset from that origin, even when the origin is negative. Known stream
+origins are required; a single audio stream with no reported start is treated as starting at
+zero. Sources with ambiguous mixed/video origins retain legacy timing on import.
 
-## Migration and limits
+The source span is the maximum of stream offset plus stream duration, preserving delayed
+starts and tails. Integer stream duration ticks take priority. When those are missing,
+Matroska DURATION tags supply labelled per-stream estimates: the tag is an end timestamp,
+so the stream's signed start is subtracted. Otherwise a container estimate is used for the
+whole source span. Matroska's reported container end is normalized by the shared origin.
+Other container duration estimates are spans. Missing positive duration information rejects.
 
-Versions 1 and 2 load with absent source metadata. IDs, allocation watermark, timing,
-locators and ordering survive unchanged. Version 2 attribution is preserved; version 1
-starts at revision zero without invented history. Saving either emits version 3.
-There is no downgrade writer. Missing metadata in version 3 is represented by SOURCE 0,
-not by omitting a required record.
+The optional container start records the demuxer's origin separately. The preview adapter
+uses it to map the shared clock to the player's clock; it does not redefine edit coordinates.
+The logical asset kind/duration must agree with its metadata and retain an original locator.
 
-The 16 MiB file ceiling and 100,000-record budget remain. Streams participate in the
-record budget alongside assets, locations, sequences, tracks, clips, operations and
-actions. The source presence/metadata header is bounded by its owning asset rather
-than separately counted. The 10,000-operation and 1,024-action limits remain.
-Malformed flags, enums, counts, durations, inconsistent metadata and trailing data fail.
+## Migration and verified relink
 
-Status is checked against the filesystem at inspection time and is not persisted as
-an online/offline bit. Metadata is a historical probe observation, not a file hash.
-Commands and undo/redo preserve it; an unverified original-locator edit clears it.
+Versions 1/2 load with absent metadata. Version 3 metadata receives legacy-per-stream mode,
+no container-origin observation, and unavailable per-stream estimates. Its old minimum-span
+rule is retained. Object IDs, allocation watermark, clip coordinates, project revisions and
+audit records remain unchanged. No source is decoded or clock convention silently changed
+during load. Saving writes version 4. There is no downgrade writer.
 
-## Save semantics
+Verified relink preserves an existing asset's clock mode and source coordinates. A replacement
+for a shared-origin asset must establish a shared clock. A legacy asset stays legacy even
+when the replacement probe can establish a shared clock. New stream facts/duration still
+undergo normal clip-bound validation; failure changes nothing. Undo/redo restores metadata.
+Importing a file as a new asset opts into the newly probed convention. This avoids guessing
+how old edits intended to align streams that the earlier player could not preview.
 
-Validation and serialization finish before an adjacent temporary file replaces the
-destination. Failed probing, invalid relinks and malformed metadata cannot replace a
-saved project. The reader is also used to enforce the writer's record budget.
+The 16 MiB file ceiling, 100,000 nested-record budget, 10,000 operation cap and 1,024-action
+batch limit remain. Source headers are bounded by their owning asset; streams count as
+records. Malformed input and trailing data reject. SourceTime rejects unrepresentable signed
+magnitudes/intermediate arithmetic independently of the nonnegative edit-time type.
 
-Undo stacks and open transactions remain session-local. Audit entries are descriptive,
-not authenticated replay instructions. Independent-writer save conflicts, crash recovery
-and power-loss durability remain outside the contract.
+## Persistence boundaries
+
+Frame indexes and temporary playback files are derived session caches and are never saved
+as project locators. Online/offline status is recomputed. Metadata is a probe observation,
+not a content hash. Unverified original-locator edits clear metadata as before.
+
+Validation and serialization finish before atomic replacement. Undo stacks and transactions
+remain session-local. Attribution is descriptive, not an authenticated replay journal.
+Independent-writer conflicts, crash recovery and power-loss durability remain deferred.

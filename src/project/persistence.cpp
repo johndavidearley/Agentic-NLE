@@ -90,7 +90,7 @@ std::string serialize(const ProjectSnapshot &project) {
     validate(project);
     std::ostringstream out;
     out.imbue(std::locale::classic());
-    out << "NLE_PROJECT 3\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
+    out << "NLE_PROJECT 4\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
         << std::quoted(project.name) << "\nMEDIA " << project.media.size() << '\n';
     for (const auto &asset : project.media) {
         out << "ASSET " << asset.id.value << ' ' << static_cast<int>(asset.kind) << ' '
@@ -108,6 +108,14 @@ std::string serialize(const ProjectSnapshot &project) {
                 << std::quoted(source.probe_configuration) << ' ' << source.byte_size << ' ';
             write_time(out, source.container_duration);
             out << ' ' << source.streams.size() << '\n';
+            out << "CLOCK " << static_cast<int>(source.time_mode) << ' '
+                << (source.container_start ? 1 : 0);
+            if (source.container_start) {
+                const auto value = source.container_start->magnitude();
+                out << ' ' << (source.container_start->negative() ? -value.value() : value.value())
+                    << ' ' << value.rate();
+            }
+            out << '\n';
             for (const auto &stream : source.streams) {
                 out << "STREAM " << stream.index << ' ' << static_cast<int>(stream.kind) << ' '
                     << std::quoted(stream.codec) << ' ';
@@ -118,7 +126,9 @@ std::string serialize(const ProjectSnapshot &project) {
                 out << ' ';
                 write_time(out, stream.nominal_frame_duration);
                 out << ' ' << stream.width << ' ' << stream.height << ' ' << stream.sample_rate
-                    << ' ' << stream.channels << '\n';
+                    << ' ' << stream.channels << ' ';
+                write_time(out, stream.duration_estimate);
+                out << '\n';
             }
         }
     }
@@ -166,7 +176,7 @@ ProjectSnapshot deserialize(std::string_view data) {
     Reader reader(data);
     reader.expect("NLE_PROJECT");
     const auto version = reader.number<unsigned>();
-    if (version != 1 && version != 2 && version != 3)
+    if (version != 1 && version != 2 && version != 3 && version != 4)
         throw DomainError("unsupported project version");
     reader.expect("PROJECT");
     ProjectSnapshot project;
@@ -202,6 +212,21 @@ ProjectSnapshot deserialize(std::string_view data) {
                 source.byte_size = reader.number<std::uint64_t>();
                 source.container_duration = reader.time();
                 const auto streams = reader.count();
+                if (version >= 4) {
+                    reader.expect("CLOCK");
+                    const auto mode = reader.number<unsigned>();
+                    if (mode > 1)
+                        throw DomainError("invalid source time convention");
+                    source.time_mode = static_cast<SourceTimeMode>(mode);
+                    const auto known = reader.number<unsigned>();
+                    if (known > 1)
+                        throw DomainError("invalid container origin flag");
+                    if (known) {
+                        const auto value = reader.number<std::int64_t>();
+                        const auto rate = reader.number<std::int64_t>();
+                        source.container_start = SourceTime{value, rate};
+                    }
+                }
                 if (streams > 64)
                     throw DomainError("too many source streams");
                 for (std::uint64_t j = 0; j < streams; ++j) {
@@ -223,6 +248,8 @@ ProjectSnapshot deserialize(std::string_view data) {
                     stream.height = reader.number<std::uint32_t>();
                     stream.sample_rate = reader.number<std::uint32_t>();
                     stream.channels = reader.number<std::uint32_t>();
+                    if (version >= 4)
+                        stream.duration_estimate = reader.time();
                     source.streams.push_back(std::move(stream));
                 }
                 asset.source = std::move(source);

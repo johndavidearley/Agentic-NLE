@@ -1,0 +1,54 @@
+[
+    {
+        "file": "vfr.mkv",
+        "frame_count": 17,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+    },
+    {
+        "file": "bframes.mp4",
+        "frame_count": 120,
+        "max_decoded_pts_error_us": 1,
+        "step_checks": 7
+    },
+    {
+        "file": "offset-common.mkv",
+        "frame_count": 96,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+    },
+    {
+        "file": "offset-audio.mkv",
+        "frame_count": 96,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+    },
+    {
+        "file": "offset-video.mkv",
+        "frame_count": 84,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+    },
+    {
+        "file": "negative-origin.mkv",
+        "frame_count": 96,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+    },
+    {
+        "file": "negative-audio.mkv",
+        "first_audio_after_quarter_second_seek_us": 235000
+    },
+    {
+        "index_cancel_ms": 12
+    },
+    {
+        "early_pairs": 47,
+        "file": "long-av.mkv",
+        "first_audio_us": 500000,
+        "first_video_us": 0,
+        "late_pairs": 49,
+        "max_delivery_skew_us": 13259,
+        "mean_offset_drift_us": 107.09292227529295
+    }
+]

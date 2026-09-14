@@ -149,8 +149,16 @@ CommandResult apply(ProjectSnapshot &candidate, const Command &command) {
                         media.locations.push_back({LocationRole::Original, c.uri});
                     else
                         it->uri = c.uri;
-                    media.duration = source_duration(c.source);
-                    media.source = c.source;
+                    auto replacement = c.source;
+                    if (media.source) {
+                        if (media.source->time_mode == SourceTimeMode::SharedOrigin &&
+                            replacement.time_mode != SourceTimeMode::SharedOrigin)
+                            throw DomainError(
+                                "replacement cannot establish the shared source clock");
+                        replacement.time_mode = media.source->time_mode;
+                    }
+                    media.duration = source_duration(replacement);
+                    media.source = std::move(replacement);
                     result.media = media.id;
                     return;
                 }

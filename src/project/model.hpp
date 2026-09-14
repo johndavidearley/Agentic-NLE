@@ -1,4 +1,5 @@
 #pragma once
+#include "core/source_time.hpp"
 #include "core/time.hpp"
 #include <cstdint>
 #include <optional>
@@ -62,8 +63,10 @@ struct SourceStream {
     RationalTime frame_duration;
     RationalTime nominal_frame_duration;
     std::uint32_t width = 0, height = 0, sample_rate = 0, channels = 0;
+    RationalTime duration_estimate{}; // Optional per-stream span from container tags.
     bool operator==(const SourceStream &) const = default;
 };
+enum class SourceTimeMode { LegacyPerStream, SharedOrigin };
 struct SourceMetadata {
     std::string container;
     std::string probe_version;
@@ -71,9 +74,13 @@ struct SourceMetadata {
     std::uint64_t byte_size = 0;
     RationalTime container_duration; // Rounded container estimate; zero means unavailable.
     std::vector<SourceStream> streams;
+    SourceTimeMode time_mode = SourceTimeMode::LegacyPerStream;
+    std::optional<SourceTime> container_start{};
     bool operator==(const SourceMetadata &) const = default;
 };
 void validate_source(const SourceMetadata &source);
+SourceTime source_origin(const SourceMetadata &source);
+RationalTime stream_offset(const SourceMetadata &source, const SourceStream &stream);
 RationalTime source_duration(const SourceMetadata &source);
 MediaKind source_kind(const SourceMetadata &source);
 RationalTime stream_duration(const SourceStream &stream, RationalTime fallback);

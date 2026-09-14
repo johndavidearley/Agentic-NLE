@@ -1,4 +1,5 @@
 #include "media/probe.hpp"
+#include <algorithm>
 #include <charconv>
 #include <map>
 #include <sstream>
@@ -61,6 +62,7 @@ SourceMetadata parse_probe(std::string_view output, std::uint64_t byte_size) {
     Fields fields;
     bool version_seen = false, format_seen = false;
     std::size_t stream_count = 0;
+    std::map<std::uint32_t, std::string> end_tags;
     while (std::getline(input, line)) {
         if (!line.empty() && line.back() == '\r')
             line.pop_back();
@@ -84,6 +86,15 @@ SourceMetadata parse_probe(std::string_view output, std::uint64_t byte_size) {
                     format_seen = true;
                     result.container = required(fields, "format_name");
                     result.container_duration = decimal(optional(fields, "duration"));
+                    auto start = optional(fields, "start_time");
+                    if (!start.empty()) {
+                        const bool negative = start.front() == '-';
+                        if (negative)
+                            start.erase(0, 1);
+                        const auto value = decimal(start);
+                        result.container_start =
+                            SourceTime{negative ? -value.value() : value.value(), value.rate()};
+                    }
                 } else {
                     if (++stream_count > 64)
                         throw DomainError("too many probe streams");
@@ -116,6 +127,7 @@ SourceMetadata parse_probe(std::string_view output, std::uint64_t byte_size) {
                                 integer<std::uint32_t>(required(fields, "sample_rate"));
                             stream.channels = integer<std::uint32_t>(required(fields, "channels"));
                         }
+                        end_tags[stream.index] = optional(fields, "TAG:DURATION");
                         result.streams.push_back(std::move(stream));
                     }
                 }
@@ -136,6 +148,27 @@ SourceMetadata parse_probe(std::string_view output, std::uint64_t byte_size) {
     }
     if (!section.empty() || !version_seen || !format_seen)
         throw DomainError("incomplete probe output");
+    if (std::all_of(result.streams.begin(), result.streams.end(),
+                    [](const auto &stream) { return stream.start_known; }) ||
+        (result.streams.size() == 1 && result.streams[0].kind == TrackKind::Audio))
+        result.time_mode = SourceTimeMode::SharedOrigin;
+    if (result.container.find("matroska") != std::string::npos) {
+        for (auto &stream : result.streams) {
+            const auto tag = end_tags[stream.index];
+            if (!tag.empty() && stream.start_known) {
+                if (tag.size() < 8 || tag[2] != ':' || tag[5] != ':')
+                    throw DomainError("invalid Matroska duration tag");
+                const auto hours = integer<std::int64_t>(tag.substr(0, 2));
+                const auto minutes = integer<std::int64_t>(tag.substr(3, 2));
+                const auto seconds = decimal(tag.substr(6));
+                if (hours < 0 || minutes < 0 || minutes >= 60 || seconds >= RationalTime{60})
+                    throw DomainError("invalid Matroska duration tag");
+                const auto end = RationalTime{hours * 3600 + minutes * 60} + seconds;
+                stream.duration_estimate = SourceTime{end.value(), end.rate()}.since(
+                    SourceTime::from_ticks(stream.start_ticks, stream.time_base));
+            }
+        }
+    }
     validate_source(result);
     return result;
 }
@@ -156,7 +189,8 @@ ProbeResult probe(const std::filesystem::path &file, const std::filesystem::path
          "5000000", "-show_program_version", "-show_entries",
          "program_version=version,configuration:stream=index,codec_name,codec_type,time_base,"
          "duration_ts,start_pts,avg_frame_rate,r_frame_rate,width,height,sample_rate,channels:"
-         "stream_disposition=attached_pic:format=format_name,duration",
+         "stream_disposition=attached_pic:stream_tags=DURATION:format=format_name,duration,start_"
+         "time",
          "-of", "default", uri},
         options);
     if (size != std::filesystem::file_size(path) ||

@@ -1,6 +1,6 @@
 # Architecture
 
-Implemented through Milestone 4 — Minimal Playback Vertical Slice.
+Implemented through Milestone 5 — Source Origins and Precision Seeking.
 
 ~~~text
 Qt desktop -----+
@@ -12,7 +12,7 @@ Future MCP -----+          |                          |
                            |
                      detached snapshot + durable operation records
                            |
-                     native version 3 persistence
+                     native version 4 persistence
 ~~~
 
 ## Boundaries
@@ -52,7 +52,8 @@ RationalTime stores reduced nonnegative seconds as checked int64 fractions.
 One 24000/1001 fps frame is 1001/24000 seconds; a 48 kHz sample is 1/48000.
 Sequence frame duration preserves the intended grid independently of normalization.
 Comparison avoids overflowing cross products; arithmetic rejects unsupported intermediates.
-Signed offsets, snapping, timecode and speed changes remain deferred.
+SourceTime separately represents signed media origins; edit coordinates stay nonnegative.
+Snapping, timecode and speed changes remain deferred.
 
 Clips use positive-duration half-open ranges at speed 1. Source bounds and media/track
 compatibility must hold, and same-track overlaps are rejected. Moves may cross sequences.
@@ -68,8 +69,8 @@ Verified replacement checks kind and all clip bounds; ordinary original locator 
 stale source metadata. Both paths preserve stable IDs and are undoable. File availability is
 computed separately on inspection. See [media probing](media-probing.md).
 
-Native version 3 adds source metadata to the version 2 revision/attribution model. Versions
-1 and 2 are explicitly migrated at load; unknown versions fail. No history is invented for imported
+Native version 4 adds explicit source-clock conventions and duration estimates. Versions
+1–3 are explicitly migrated at load while preserving legacy per-stream semantics; unknown versions fail. No history is invented for imported
 old projects. Attribution records survive undo and save/load, but are not an authenticated
 or replayable event journal. Persistence consumes snapshots and atomically replaces a
 fully staged file during ordinary operation; power-loss durability is not promised.
@@ -90,12 +91,20 @@ invalidates old output and kills the worker; rapid seeks coalesce to the latest 
 Local socket transfer limits, load deadlines and a playback watchdog bound failures.
 The worker is process isolation, not a security sandbox.
 
-Core edit times remain exact fractions. The adapter floors seek times to milliseconds;
-VFR lookup follows decoded timestamps. Nonzero or unknown video/A/V starts are rejected
-explicitly; unknown audio-only starts are permitted. Preview includes cuts and blank/silent
-gaps, with loading pauses at cuts. It does not mix separate tracks or guarantee sample-
-accurate audio cuts. See [desktop preview](desktop-preview.md), [evaluation](playback-evaluation.md)
-and [ADR 0010](adr/0010-desktop-playback.md).
+Core edit times remain exact fractions. A separate signed SourceTime models original packet
+origins. Shared sources retain relative stream starts and the union of their spans; legacy
+assets keep the earlier convention. Verified relink preserves the asset's clock mode.
+
+A bounded background ffprobe job builds a decoded-frame index. Paused seeks choose a held
+frame from presentation timestamps and verify its decoded PTS in the Qt worker. Frame-step
+controls change only the playhead. The index/cache is invalidated by source identity/metadata
+or modification-time changes and is not persisted. Negative origins use a temporary verified
+packet-copy source because the measured Qt backend cannot seek negative packets directly.
+Cancellation coalesces both frame preparation and playback work.
+
+Preview includes cuts and blank/silent gaps, with loading pauses at cuts. It does not mix
+separate tracks or guarantee sample-accurate audio cuts. See [desktop preview](desktop-preview.md),
+[evaluation](precision-evaluation.md) and [ADR 0011](adr/0011-source-origins-and-frame-index.md).
 
 ## Scaling and remaining boundaries
 

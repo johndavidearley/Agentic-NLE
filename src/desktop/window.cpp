@@ -143,7 +143,7 @@ void Timeline::mousePressEvent(QMouseEvent *event) {
 }
 Window::Window(QString worker, QString ffprobe, bool audible)
     : editor_(std::make_unique<Editor>("Untitled")), saved_(editor_->snapshot()),
-      ffprobe_(std::move(ffprobe)), transport_(std::move(worker), audible, this) {
+      ffprobe_(std::move(ffprobe)), transport_(std::move(worker), audible, this, ffprobe_) {
     setWindowTitle("Agentic NLE");
     resize(1360, 850);
     auto *toolbar = addToolBar("Project");
@@ -203,8 +203,10 @@ Window::Window(QString worker, QString ffprobe, bool audible)
     });
     action("Probe tool…", [this] {
         const auto file = QFileDialog::getOpenFileName(this, "Choose ffprobe executable");
-        if (!file.isEmpty())
+        if (!file.isEmpty()) {
             ffprobe_ = file;
+            transport_.setProbeTool(file);
+        }
     });
     toolbar->addSeparator();
     undo_ = button("Undo", "undoButton");
@@ -264,6 +266,12 @@ Window::Window(QString worker, QString ffprobe, bool audible)
     auto *stop = button("Stop", "stopButton");
     controls->addWidget(stop);
     connect(stop, &QPushButton::clicked, &transport_, &Transport::cancel);
+    auto *previousFrame = button("Previous frame", "previousFrameButton");
+    auto *nextFrame = button("Next frame", "nextFrameButton");
+    controls->addWidget(previousFrame);
+    controls->addWidget(nextFrame);
+    connect(previousFrame, &QPushButton::clicked, this, [this] { transport_.step(-1); });
+    connect(nextFrame, &QPushButton::clicked, this, [this] { transport_.step(1); });
     clock_ = new QLabel("0.000 / 0.000 s");
     transportInfo_ = new QLabel("Ready");
     controls->addWidget(transportInfo_);

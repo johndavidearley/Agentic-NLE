@@ -60,16 +60,27 @@ undoable commands. The deployed Windows runtime also passes the desktop smoke te
 configured for Linux and macOS (Apple Silicon and Intel); those executions remain unverified
 from this workspace. This slice does not promise seamless cuts or physical A/V sync.
 
-## Recommended Milestone 5 — Source Origins and Precision Seeking
+## Milestone 5 — Source Origins and Precision Seeking (complete)
 
-Define a common source-time convention that preserves stream offsets, with explicit native
-migration and relink behavior. Build decoded-frame lookup and stepping on CFR/VFR fixtures,
-then measure seek correctness and A/V scheduling over longer clips. Extend the existing
-preview adapter only after evidence supports the new source-time contract.
+A signed media-origin type and shared source clock preserve positive/negative A/V origins,
+relative stream starts and tails. Native version 4 records the clock convention explicitly;
+versions 1-3 retain old clip coordinates and legacy timing. Verified relink preserves the
+asset's clock mode and validates all clip bounds.
 
-Exit: nonzero/unequal stream starts preserve their intended alignment; frame stepping and
-seek selection are demonstrated on timestamped fixtures; old projects migrate predictably.
-Independent track mixing, export and a broad effects system remain separate work.
+Decoded-frame lookup selects paused frames by presentation timestamps and adds previous/next
+frame controls for CFR, VFR and B-frame fixtures. The requested playhead remains exact.
+Negative packet origins use a bounded temporary packet-copy source only after stream/frame
+verification. Original media and persisted locators stay authoritative.
+[ADR 0011](adr/0011-source-origins-and-frame-index.md) records the decision and limits.
+
+Exit demonstrated on Windows: 33/33 tests in both Debug and Release, 27/27 in the independent
+headless Release build, and the deployed desktop smoke test. Offset/negative sources retain
+alignment; frame seeks and stepping match decoded timestamps within integer rescaling;
+legacy projects migrate predictably. A 12-second delayed-audio fixture measures decoder
+scheduling through 11 seconds. [Precision evaluation](precision-evaluation.md) records exact
+results, bounds and remaining platform validation. Linux/macOS CI is configured and updated
+for the observed baseline failures; execution of this milestone there remains pending.
+Independent track mixing, seamless cuts, export and broad effects remain separate work.
 
 ## Later work
 

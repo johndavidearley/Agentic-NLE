@@ -103,7 +103,7 @@ jobs:
         run: |
           sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) -exec grep -l 'dl.google.com/linux/chrome' {} + | xargs -r sudo rm -f
           sudo apt-get update
-          sudo apt-get install -y ffmpeg libgl1 libegl1 libxkbcommon0 libfontconfig1 libxcb-cursor0 libpulse0
+          sudo apt-get install -y ffmpeg libgl1-mesa-dev libegl1-mesa-dev libxkbcommon-dev libfontconfig1 libxcb-cursor0 libpulse0
       - name: Install Windows fixture tools
         if: runner.os == 'Windows'
         run: choco install ffmpeg --yes --no-progress
@@ -148,5 +148,6 @@ jobs:
           name: desktop-${{ matrix.os }}
           path: |
             build/playback-evaluation-*.json
+            build/precision-evaluation-*.json
             build/desktop-*.png
             build/Testing/Temporary/LastTest.log

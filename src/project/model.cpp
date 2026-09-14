@@ -30,7 +30,7 @@ bool supports(MediaKind media, TrackKind track) {
 }
 RationalTime stream_duration(const SourceStream &stream, RationalTime fallback) {
     if (stream.duration_ticks == -1)
-        return fallback;
+        return stream.duration_estimate == RationalTime{} ? fallback : stream.duration_estimate;
     if (stream.duration_ticks <= 0 || stream.time_base == RationalTime{})
         throw DomainError("invalid stream duration or time base");
     const auto divisor = std::gcd(stream.duration_ticks, stream.time_base.rate());
@@ -39,13 +39,41 @@ RationalTime stream_duration(const SourceStream &stream, RationalTime fallback) 
         throw DomainError("stream duration overflow");
     return {ticks * stream.time_base.value(), stream.time_base.rate() / divisor};
 }
+SourceTime source_origin(const SourceMetadata &source) {
+    std::optional<SourceTime> origin;
+    for (const auto &stream : source.streams) {
+        if (!stream.start_known && !(source.streams.size() == 1 && stream.kind == TrackKind::Audio))
+            throw DomainError("shared source clock requires known stream origins");
+        const auto start = SourceTime::from_ticks(stream.start_ticks, stream.time_base);
+        if (!origin || start < *origin)
+            origin = start;
+    }
+    if (!origin)
+        throw DomainError("source has no streams");
+    return *origin;
+}
+RationalTime stream_offset(const SourceMetadata &source, const SourceStream &stream) {
+    return SourceTime::from_ticks(stream.start_ticks, stream.time_base)
+        .since(source_origin(source));
+}
 RationalTime source_duration(const SourceMetadata &source) {
     std::optional<RationalTime> result;
     for (const auto &stream : source.streams) {
-        const auto duration = stream_duration(stream, source.container_duration);
+        auto fallback = source.container_duration;
+        if (source.time_mode == SourceTimeMode::SharedOrigin &&
+            source.container.find("matroska") != std::string::npos && fallback != RationalTime{})
+            fallback = SourceTime{fallback.value(), fallback.rate()}.since(source_origin(source));
+        auto duration = stream_duration(stream, fallback);
+        if (source.time_mode == SourceTimeMode::SharedOrigin) {
+            const auto offset = stream_offset(source, stream);
+            // A container fallback is already a whole-source span, not a stream span.
+            if (stream.duration_ticks != -1 || stream.duration_estimate != RationalTime{})
+                duration = offset + duration;
+        }
         if (duration == RationalTime{})
             throw DomainError("source duration unavailable");
-        if (!result || duration < *result)
+        if (!result || (source.time_mode == SourceTimeMode::SharedOrigin ? duration > *result
+                                                                         : duration < *result))
             result = duration;
     }
     if (!result)
@@ -68,6 +96,9 @@ void validate_source(const SourceMetadata &source) {
     validate_text(source.probe_configuration);
     if (source.byte_size == 0 || source.streams.empty() || source.streams.size() > 64)
         throw DomainError("invalid source size or stream count");
+    if (source.time_mode != SourceTimeMode::LegacyPerStream &&
+        source.time_mode != SourceTimeMode::SharedOrigin)
+        throw DomainError("invalid source time convention");
     std::set<std::uint32_t> indices;
     for (const auto &stream : source.streams) {
         validate_text(stream.codec);

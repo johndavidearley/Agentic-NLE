@@ -17,12 +17,13 @@ void validate_preview_source(const MediaAsset &asset) {
             ++video;
         else
             ++audio;
-        // The model currently normalizes each stream independently. A container player
-        // cannot reproduce unequal/nonzero origins under that convention without remapping.
-        if ((stream.start_known && stream.start_ticks != 0) ||
-            (!stream.start_known && asset.kind != MediaKind::Audio))
-            throw DomainError("Preview requires zero, aligned stream starts; offset sources remain "
-                              "editable but cannot be previewed yet.");
+        // Legacy assets retain independent stream coordinates after migration.
+        // Re-import establishes a shared clock without silently moving existing edits.
+        if (asset.source->time_mode == SourceTimeMode::LegacyPerStream &&
+            ((stream.start_known && stream.start_ticks != 0) ||
+             (!stream.start_known && asset.kind != MediaKind::Audio)))
+            throw DomainError("Legacy preview requires zero, aligned stream starts. Re-import this "
+                              "source as a new asset to use its shared source clock.");
     }
     if (video > 1 || audio > 1)
         throw DomainError(

@@ -291,7 +291,7 @@ void persistence_tests() {
     replace_once("MEDIA 1", "MEDIA -1");
     replace_once("MEDIA 1", "MEDIA 100001");
     replace_once("MEDIA 1", "MEDIA 18446744073709551616");
-    replace_once("NLE_PROJECT 3", "NLE_PROJECT 3.0");
+    replace_once("NLE_PROJECT 4", "NLE_PROJECT 4.0");
     replace_once("\"Test\"", "Test");
     replace_once("ASSET 4 2", "ASSET 4 99");
     replace_once("TRACK 2 0", "TRACK 2 99");

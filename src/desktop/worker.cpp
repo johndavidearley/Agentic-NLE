@@ -13,17 +13,28 @@
 #include <QTimer>
 #include <QVideoFrame>
 #include <QVideoSink>
+#include <algorithm>
+#include <cmath>
 
 int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
     const auto args = app.arguments();
-    // server, local file, start/end milliseconds, autoplay, audible
-    if (args.size() != 7)
+    // server, file, requested/end ms, autoplay, audible, poster-seek ms,
+    // expected poster PTS in source microseconds (-1 means blank), player clock offset us.
+    if (args.size() != 10)
         return 2;
-    bool start_ok = false, end_ok = false;
-    const auto start = args[3].toLongLong(&start_ok), end = args[4].toLongLong(&end_ok);
-    if (!start_ok || !end_ok || start < 0 || end <= start || end > 86400000 ||
-        !QFileInfo(args[2]).isFile())
+    bool valid = true;
+    const auto number = [&](int index) {
+        bool ok = false;
+        const auto value = args[index].toLongLong(&ok);
+        valid = valid && ok;
+        return value;
+    };
+    const auto start = number(3), end = number(4), seek = number(7), expected = number(8),
+               shift = number(9);
+    if (!valid || start < 0 || end <= start || end > 86400000 || seek < 0 || seek > 86400001 ||
+        expected < -1 || expected > 86400000000LL || shift < -86400000000LL ||
+        shift > 86400000000LL || !QFileInfo(args[2]).isFile())
         return 2;
     QLocalSocket socket;
     socket.setReadBufferSize(4096);
@@ -35,7 +46,8 @@ int main(int argc, char **argv) {
     player.setAudioBufferOutput(&buffers);
     if (args[6] == "1")
         player.setAudioOutput(&output);
-    bool playing = args[5] == "1", loaded = false, ended = false;
+    bool playing = args[5] == "1", loaded = false, ended = false, ready = false;
+    qint64 resume = start;
     QElapsedTimer delivery, image_clock;
     delivery.start();
     const auto send = [&](QJsonObject message) {
@@ -48,6 +60,18 @@ int main(int argc, char **argv) {
         socket.write(encoded);
     };
     const auto fail = [&](const QString &error) { send({{"type", "error"}, {"message", error}}); };
+    const auto announce = [&] {
+        if (ready)
+            return;
+        ready = true;
+        send({{"type", "ready"},
+              {"video", player.hasVideo()},
+              {"audio", player.hasAudio()},
+              {"duration_ms", player.duration()}});
+    };
+    const auto player_position = [&](qint64 source_ms) {
+        return std::max<qint64>(0, source_ms + shift / 1000);
+    };
     QObject::connect(&socket, &QLocalSocket::disconnected, &app, &QCoreApplication::quit);
     QObject::connect(&socket, &QLocalSocket::connected, &app, [&] {
         player.setSource(QUrl::fromLocalFile(QFileInfo(args[2]).absoluteFilePath()));
@@ -62,15 +86,13 @@ int main(int argc, char **argv) {
                                  fail("Source does not support seeking.");
                                  return;
                              }
-                             player.setPosition(start);
+                             player.setPosition(player_position(playing ? start : seek));
                              if (playing)
                                  player.play();
                              else
                                  player.pause();
-                             send({{"type", "ready"},
-                                   {"video", player.hasVideo()},
-                                   {"audio", player.hasAudio()},
-                                   {"duration_ms", player.duration()}});
+                             if (playing || !player.hasVideo() || expected < 0)
+                                 announce();
                          } else if (status == QMediaPlayer::EndOfMedia && !ended) {
                              ended = true;
                              send({{"type", "ended"}});
@@ -79,10 +101,13 @@ int main(int argc, char **argv) {
     QObject::connect(&video, &QVideoSink::videoFrameChanged, &app, [&](const QVideoFrame &frame) {
         if (!frame.isValid() || !loaded || ended)
             return;
-        const auto pts = frame.startTime(), finish = frame.endTime();
-        // QMediaPlayer selects the seek frame. A VFR frame's nominal endTime can
-        // precede the next presentation timestamp, so it is not a hold interval.
-        if (pts < 0 || pts >= end * 1000)
+        const auto pts = frame.startTime() - shift, finish = frame.endTime() - shift;
+        if (pts < -1500 || pts >= end * 1000)
+            return;
+        // The index chooses the held frame. Nominal endTime is not a VFR hold interval.
+        if (!playing && (expected < 0 || std::abs(pts - expected) > 2))
+            return;
+        if (playing && finish > 0 && finish <= start * 1000)
             return;
         QJsonObject message{{"type", "video"}, {"pts_us", pts}, {"end_us", finish}};
         if (!image_clock.isValid() || image_clock.elapsed() >= 30 || !playing) {
@@ -103,12 +128,14 @@ int main(int argc, char **argv) {
             image_clock.restart();
         }
         send(message);
+        if (!playing)
+            announce();
     });
     QObject::connect(&buffers, &QAudioBufferOutput::audioBufferReceived, &app,
                      [&](const QAudioBuffer &buffer) {
                          if (loaded && !ended && buffer.isValid() && buffer.startTime() >= 0)
                              send({{"type", "audio"},
-                                   {"pts_us", buffer.startTime()},
+                                   {"pts_us", buffer.startTime() - shift},
                                    {"duration_us", buffer.duration()}});
                      });
     QByteArray input;
@@ -123,10 +150,16 @@ int main(int argc, char **argv) {
             input.remove(0, newline + 1);
             const auto command = object["command"].toString();
             if (command == "play") {
+                if (loaded && !playing)
+                    player.setPosition(player_position(resume));
                 playing = true;
-                if (loaded)
+                if (loaded) {
                     player.play();
+                    announce();
+                }
             } else if (command == "pause") {
+                if (playing && loaded)
+                    resume = std::max<qint64>(0, player.position() - shift / 1000);
                 playing = false;
                 if (loaded)
                     player.pause();
@@ -140,10 +173,11 @@ int main(int argc, char **argv) {
     clock.setTimerType(Qt::PreciseTimer);
     clock.setInterval(10);
     QObject::connect(&clock, &QTimer::timeout, &app, [&] {
-        if (!loaded || ended)
+        if (!loaded || ended || !ready)
             return;
-        const auto position = player.position();
-        if (position >= end) {
+        const auto position =
+            playing ? std::max<qint64>(0, player.position() - shift / 1000) : resume;
+        if (playing && position >= end) {
             player.pause();
             ended = true;
             send({{"type", "ended"}});
@@ -154,8 +188,10 @@ int main(int argc, char **argv) {
     clock.start();
     socket.connectToServer(args[1]);
     QTimer::singleShot(10000, &app, [&] {
-        if (!loaded)
+        if (!ready) {
+            fail("Cannot retrieve the indexed frame before the preview deadline.");
             app.exit(5);
+        }
     });
     return app.exec();
 }

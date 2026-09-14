@@ -28,3 +28,30 @@ subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48
 subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=96x64:rate=60:duration=2",
                 "-vf", "select='if(lt(t,1),not(mod(n,5)),not(mod(n,12)))'", "-fps_mode", "vfr",
                 "-c:v", "ffv1", "-y", str(root / "vfr.mkv")], check=True)
+
+# Shared origins, delayed audio/video and a longer A/V scheduling fixture.
+for name, video_delay, audio_delay, video_duration, audio_duration in [
+        ("offset-common.mkv", 0, 0, 4, 4),
+        ("offset-audio.mkv", 0, 0.5, 4, 3.5),
+        ("offset-video.mkv", 0.5, 0, 3.5, 4),
+        ("long-av.mkv", 0, 0.5, 12, 11.5)]:
+    subprocess.run([ffmpeg, "-v", "error", "-itsoffset", str(video_delay),
+                    "-f", "lavfi", "-i", f"testsrc2=size=128x72:rate=24:duration={video_duration}",
+                    "-itsoffset", str(audio_delay), "-f", "lavfi", "-i",
+                    f"sine=frequency=440:sample_rate=48000:duration={audio_duration}",
+                    "-c:v", "ffv1", "-c:a", "pcm_s16le", "-output_ts_offset", "2",
+                    "-y", str(root / name)], check=True)
+subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i",
+                "testsrc2=size=128x72:rate=30000/1001:duration=4", "-c:v", "mpeg4",
+                "-bf", "2", "-g", "48", "-y", str(root / "bframes.mp4")], check=True)
+
+subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i",
+                "testsrc2=size=96x64:rate=24:duration=4", "-f", "lavfi", "-i",
+                "sine=frequency=440:sample_rate=48000:duration=4", "-c:v", "ffv1", "-c:a", "pcm_s16le",
+                "-output_ts_offset", "-1", "-avoid_negative_ts", "disabled", "-y",
+                str(root / "negative-origin.mkv")], check=True)
+
+subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i",
+                "sine=frequency=440:sample_rate=48000:duration=4", "-c:a", "pcm_s16le",
+                "-output_ts_offset", "-1", "-avoid_negative_ts", "disabled", "-y",
+                str(root / "negative-audio.mkv")], check=True)

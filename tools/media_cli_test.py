@@ -27,6 +27,6 @@ try:
     assert project.read_bytes() == before
     run("relink", project, "1", root / "tone.wav", probe)
     assert "stream-ticks" in run("inspect", project)
-    assert project.read_bytes().startswith(b"NLE_PROJECT 3")
+    assert project.read_bytes().startswith(b"NLE_PROJECT 4")
 finally:
     project.unlink(missing_ok=True)

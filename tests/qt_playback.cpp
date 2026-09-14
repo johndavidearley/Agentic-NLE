@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
         for (const auto *name : {"tone.wav", "video.mp4", "av.mkv", "vfr.mkv"}) {
             const auto plan = plan_for(media::utf8_path((directory + "/" + name).toStdString()),
                                        media::utf8_path(ffprobe.toStdString()));
-            Transport transport(worker, false);
+            Transport transport(worker, false, nullptr, ffprobe);
             std::vector<QJsonObject> observations;
             qint64 pts = -1, finish = -1;
             int frames = 0;
@@ -86,9 +86,7 @@ int main(int argc, char **argv) {
                 const auto before_hold = frames;
                 transport.seek({11, 20});
                 CHECK(wait_for([&] { return !transport.loading() && frames > before_hold; }, 3000));
-                // The decoder may select either adjacent frame. This adapter does not
-                // implement an index for exact hold-frame lookup between VFR timestamps.
-                CHECK(pts >= 499000 && pts <= 584000);
+                CHECK(pts == 500000);
                 between_frame_pts = pts;
             }
             transport.play();
@@ -98,7 +96,7 @@ int main(int argc, char **argv) {
             QElapsedTimer pause_clock;
             pause_clock.start();
             wait_for([&] { return pause_clock.elapsed() >= 150; }, 300);
-            CHECK((transport.position() <= paused + RationalTime{1, 10}));
+            CHECK(transport.position() == paused);
             // Restart from zero for steady-state delivery telemetry; timestamps are measured
             // at decoder output, not at the sound device or display scanout.
             observations.clear();
@@ -152,7 +150,7 @@ int main(int argc, char **argv) {
         }
         auto plan = plan_for(media::utf8_path((directory + "/video.mp4").toStdString()),
                              media::utf8_path(ffprobe.toStdString()));
-        Transport latest(worker, false);
+        Transport latest(worker, false, nullptr, ffprobe);
         qint64 last = -1;
         QObject::connect(&latest, &Transport::frameReady, &app,
                          [&](const QImage &image, qint64 pts, qint64) {
@@ -169,12 +167,13 @@ int main(int argc, char **argv) {
         latest.open(plan);
         CHECK(latest.status().contains("missing"));
         CHECK(latest.idle());
+        plan.segments[0].asset.source->time_mode = SourceTimeMode::LegacyPerStream;
         plan.segments[0].asset.source->streams[0].start_ticks = 1;
         latest.open(plan);
         CHECK(latest.status().contains("aligned"));
         plan = plan_for(media::utf8_path((directory + "/video.mp4").toStdString()),
                         media::utf8_path(ffprobe.toStdString()));
-        Transport hanging(args[5], false);
+        Transport hanging(args[5], false, nullptr, ffprobe);
         hanging.setLoadTimeout(80);
         QElapsedTimer cancellation;
         cancellation.start();
@@ -182,7 +181,7 @@ int main(int argc, char **argv) {
         CHECK(wait_for([&] { return hanging.status().contains("timed out") && hanging.idle(); },
                        1500));
         CHECK(cancellation.elapsed() < 1500);
-        Transport absent(directory + "/missing-worker", false);
+        Transport absent(directory + "/missing-worker", false, nullptr, ffprobe);
         absent.open(plan);
         CHECK(wait_for([&] { return absent.status().contains("Cannot start") && absent.idle(); },
                        1500));
