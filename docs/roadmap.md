@@ -82,10 +82,29 @@ results, bounds and remaining platform validation. Linux/macOS CI is configured 
 for the observed baseline failures; execution of this milestone there remains pending.
 Independent track mixing, seamless cuts, export and broad effects remain separate work.
 
+## Milestone 6 — Local Agent Editing through MCP (complete)
+
+An optional, headless stdio MCP adapter exposes project inspection, paged changes,
+preview/commit/rollback of grouped timeline commands, undo/redo and explicit save. Agents
+operate on already registered media using the same Editor/Transaction engine as the desktop.
+The launcher binds one project, one actor and explicit edit/save permissions. JSON uses exact
+decimal-string IDs/revisions and rational time pairs. No network listener or arbitrary file
+path tools are exposed.
+
+Exit demonstrated on Windows: 36/36 tests in Debug and Release; 30/30 in an independent
+Qt-free MCP Release build; 27/27 in the default build. The official MCP SDK 2.2.0 discovers
+nine tools and executes previews, grouped commits, undo/redo and explicit save. Agent batches
+equal direct core commands; stale, invalid, foreign, expired, unauthorized and duplicate
+requests have tested outcomes. Save is bound to the configured file and detects ordinary
+external changes. Retry records are bounded and never silently evicted. The native format
+and core remain unchanged. [MCP evaluation](mcp-evaluation.md) records results and limits.
+Cross-platform CI is configured; its execution remains pending. Multi-track playback, agent
+media import, remote transport and concurrent desktop/server editing remain separate work.
+
 ## Later work
 
-Seamless/multi-track playback; small MCP adapter with authorization/idempotency; interchange
-and explicit lossy conversion reporting. Audit compaction, independent-writer save conflicts,
+Seamless/multi-track playback; agent media import; interchange and explicit lossy conversion
+reporting. Audit compaction, independent-writer save conflicts,
 UUID remapping, more efficient history and crash durability need separate bounded work as
 their use cases arrive. Color, compositing, multicam, broad effects, advanced audio and
 collaboration remain out of scope.

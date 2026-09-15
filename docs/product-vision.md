@@ -10,10 +10,11 @@ references, not borrowed architectures or implementations.
 Agents are domain clients using stable IDs and explicit operations. They do not press
 buttons or own a separate edit representation. MCP is one adapter alongside UI and CLI.
 
-Milestone 1 proves the headless model. Later work can add probing, playback, Qt,
-interchange, and a small MCP surface. Automated results should remain editable and
-attributable to concrete operations. Milestone 2 persists revisions and actor/operation metadata. Complete replayable provenance and reproducible media execution
-are future work; this bootstrap provides deterministic editing and persistent state.
+Milestones 1–6 provide the headless model, hardened editing sessions, media probing,
+a Qt playback preview, source timing and frame precision, and a local MCP editing surface.
+Automated results remain editable and attributable to concrete operations. Revisions and
+actor/operation metadata persist in the native project. Interchange, complete replayable
+provenance and reproducible media execution remain future work.
 
 Color, compositing, multicam, AI generation, advanced audio, cloud collaboration,
 and a plugin marketplace are outside the bootstrap.

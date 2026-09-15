@@ -27,3 +27,5 @@ Milestone 3: [0009 Optional ffprobe discovery adapter](0009-media-probing.md) �
 Milestone 4: [0010 Qt desktop and isolated preview worker](0010-desktop-playback.md) — accepted.
 
 Milestone 5: [0011 Shared source origins and decoded frame lookup](0011-source-origins-and-frame-index.md) — accepted.
+
+- [0012: Local MCP editing adapter](0012-local-mcp-adapter.md)

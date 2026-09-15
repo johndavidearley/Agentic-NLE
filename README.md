@@ -1,15 +1,16 @@
 # Agentic NLE
 
 A professional open-source video editor designed for human editors and software agents.
-This repository implements **Milestone 5 — Source Origins and Precision Seeking**.
+This repository implements **Milestone 6 — Local Agent Editing through MCP**.
 An optional Qt desktop imports media, previews a sequence, and provides command-based
 trim, position, split, delete and undo/redo controls. Paused seeks and frame stepping use a
 decoded-frame index, and shared source clocks preserve stream offsets. The headless CLI remains available.
-There is no export pipeline or MCP server yet.
+An optional local MCP server gives agents detached previews, grouped commits, undo/redo and
+explicit saves through the same engine. There is no export pipeline yet.
 
 The C++20 core provides typed persistent identities, exact rational time, detached
 inspection snapshots, validated commands, grouped transactions, revisions, actor/operation attribution, bounded undo/redo, and versioned native persistence.
-Human UI, CLI, and future MCP adapters share the same command boundary.
+Human UI, CLI and MCP share the same command boundary.
 
 ## Build and test
 
@@ -66,6 +67,16 @@ seamless cuts remain deferred. [Precision evaluation](docs/precision-evaluation.
 frame selection, stepping, cancellation and decoder-delivery timing limits.
 Desktop CI is configured for Windows, Linux, and macOS on Apple Silicon and Intel;
 local desktop validation is Windows only.
+
+## Agent editing through MCP
+
+Build with -DNLE_BUILD_MCP=ON and configure a local MCP client to launch editor-mcp with
+--project FILE. Sessions are read-only by default; --allow-edit and --allow-save grant
+separate permissions. Agents inspect existing media, preview command batches, commit one
+undoable edit, and save explicitly. The core and server do not require Qt.
+
+See [setup and workflow](docs/agent-editing.md) and [validation](docs/mcp-evaluation.md).
+The native project remains editable in the desktop after the agent session is closed.
 
 ## Run the headless vertical slice
 
@@ -135,9 +146,9 @@ Oversized edits and full audit logs reject changes explicitly. Native files rema
 limited to 16 MiB/100,000 nested records; versions 1–3 migrate to version 4 on save without changing old clip timing.
 Open transactions and undo history are not persisted.
 
-There is no independent-writer coordination, retry idempotency, authenticated attribution,
-audit compaction, power-loss durability or crash recovery. Use one authoritative Editor
-per project. Exact time arithmetic retains milestone 1's conservative overflow limits;
+Concurrent desktop/MCP editing, crash-safe retry recovery, authenticated remote attribution,
+audit compaction, power-loss durability and crash recovery remain out of scope. MCP retries
+are protected only within one live session. Use one authoritative Editor per project. Exact time arithmetic retains milestone 1's conservative overflow limits;
 negative edit positions, snapping, speed changes, linked A/V edits and transitions remain deferred.
 
 Original code is [MIT licensed](LICENSE). The headless core links no third-party runtime
@@ -145,4 +156,6 @@ library. The optional ffprobe executable retains its own build-specific license;
 [ADR 0009](docs/adr/0009-media-probing.md). The optional desktop dynamically links Qt and
 uses Qt's FFmpeg backend; dependency licenses and distribution obligations are recorded in
 [ADR 0010](docs/adr/0010-desktop-playback.md) and
-[ADR 0011](docs/adr/0011-source-origins-and-frame-index.md). No dependency binaries are committed.
+[ADR 0011](docs/adr/0011-source-origins-and-frame-index.md). The optional MCP adapter uses
+MIT-licensed nlohmann/json; see [ADR 0012](docs/adr/0012-local-mcp-adapter.md). No dependency
+binaries are committed.

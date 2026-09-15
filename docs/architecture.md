@@ -1,11 +1,11 @@
 # Architecture
 
-Implemented through Milestone 5 — Source Origins and Precision Seeking.
+Implemented through Milestone 6 — Local Agent Editing through MCP.
 
 ~~~text
 Qt desktop -----+
 CLI ------------+--> Editor / Transaction --> shared command application --> candidate
-Future MCP -----+          |                          |
+MCP stdio ------+          |                          |
                      expected revision         validate invariants
                            |                          |
                      atomic commit + bounded undo history
@@ -105,6 +105,15 @@ Cancellation coalesces both frame preparation and playback work.
 Preview includes cuts and blank/silent gaps, with loading pauses at cuts. It does not mix
 separate tracks or guarantee sample-accurate audio cuts. See [desktop preview](desktop-preview.md),
 [evaluation](precision-evaluation.md) and [ADR 0011](adr/0011-source-origins-and-frame-index.md).
+
+## Local agent adapter
+
+src/mcp owns JSON wire conversion, schema discovery, stdio lifecycle and a bounded session
+registry for proposals and retry results. Its launcher owns the project path, fixed actor,
+permissions and cooperative save lock. JSON/MCP do not enter nle_core. Agent edits use the
+existing Editor/Transaction API and preserve version-4 native files and exact source clocks.
+Sessions inspect existing registered media; no backend, Qt or media file access is required.
+See [MCP boundary](mcp-boundary.md) for revision, authorization, persistence and retry limits.
 
 ## Scaling and remaining boundaries
 

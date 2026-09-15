@@ -62,8 +62,9 @@ An Editor mutex serializes its entry points; two writers with the same expected 
 cannot both succeed. There are no callbacks under this mutex.
 
 This synchronizes one Editor, not multiple processes or independently loaded Editors.
-Use one authoritative editing session per project file. Cross-process file locks,
-compare-and-swap saves, remote authentication and retry idempotency remain future work.
+Use one authoritative editing session per project file. The local MCP adapter adds a cooperative save lock, ordinary external-file change detection
+and session-scoped retry records outside Editor. Atomic compare-and-swap saves with other
+writers, remote authentication and crash-safe retry recovery remain future work.
 
 ## Attribution and change notifications
 

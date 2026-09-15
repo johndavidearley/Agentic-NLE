@@ -1,0 +1,26 @@
+{
+  "sdk": "mcp",
+  "sdk_version": "2.2.0",
+  "protocol": "2025-11-25",
+  "tools": [
+    "edit_commit",
+    "edit_preview",
+    "edit_rollback",
+    "history_redo",
+    "history_undo",
+    "project_changes",
+    "project_get",
+    "project_save",
+    "project_snapshot"
+  ],
+  "tool_calls": 24,
+  "commands_in_batch": 10,
+  "exact_frame_duration": {
+    "rate": "30000",
+    "value": "1001"
+  },
+  "grouped_edit_undo_redo": true,
+  "idempotent_commit_and_save": true,
+  "schemas_validated": true,
+  "elapsed_ms": 389.04
+}

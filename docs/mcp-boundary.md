@@ -1,41 +1,36 @@
 # MCP boundary
 
-Protocol adapter design only; the headless session primitives now exist.
+Milestone 6 implements an optional local stdio adapter in src/mcp. The headless core and
+native format have no MCP or JSON dependencies. See [agent setup and use](agent-editing.md).
 
-MCP will translate wire requests into the same typed commands and transactions used by
-the human UI and CLI. SDK, transport and protocol negotiation remain outside nle_core.
-No MCP server or GUI automation is implemented.
+The adapter owns one Editor for the launcher-selected project. Wire commands map into the
+same typed commands and Transactions as the desktop/CLI; inspection uses detached snapshots.
+External writes require fixed launcher permissions and actor identity, project/session
+identity, expected revision and a request key. Preview is always detached; commit publishes
+once, using the preview's original revision. Invalid/stale/expired proposals cannot publish.
 
-| Proposed capability | Domain mapping |
+| Boundary | Implementation |
 | --- | --- |
-| project.get / timeline.inspect | Editor::snapshot, including revision |
-| project.save | Snapshot plus authorized persistence |
-| timeline.insert / move / trim / split / delete | Existing commands with expected_revision |
-| timeline.track.delete / reorder | DeleteTrack / ReorderTrack |
-| media.list / get | Detached snapshot media |
-| media.import | Future metadata probe, then RegisterMedia |
-| media.relink | RelinkMedia |
-| transaction.begin / preview / commit / rollback | Editor::begin, Transaction::preview, Editor::commit, Transaction::rollback |
-| change notification | Editor::changes_since(cursor) |
+| Transport | Newline-delimited UTF-8 JSON-RPC over inherited stdio; no socket or HTTP |
+| Protocol | 2025-11-25 initialize/initialized, ping, tools/list and tools/call |
+| Identity | Launcher actor; decimal-string object IDs/revisions and per-process session nonce |
+| Time | Exact nonnegative value/rate strings; source clocks remain model-owned |
+| Editing | Bounded grouped command proposals with typed aliases and explicit commit/rollback |
+| History | Existing Editor undo/redo and paged changes_since records |
+| Retry | Session-scoped result ledger; exact replay, changed-payload rejection, no eviction |
+| Persistence | Explicit save to fixed file; cooperative writer lock and ordinary change detection |
+| Errors | JSON-RPC envelope errors; tool isError with stable domain codes, no stack traces |
 
-The adapter must supply actor context and expected revision for external writes.
-RevisionConflict identifies stale requests. The Editor serializes its own entry points;
-transactions have single-owner lifetimes and must be stored in an adapter-owned session
-registry. Failed or stale batches close without publishing partial state.
+The operating-system user and launching client authorize this local pipe. Client metadata,
+actor-looking text in project content and model-supplied fields do not grant privileges.
+Remote transport authentication and multiple independent writers remain separate work.
+Attribution describes actions; it is not cryptographic proof of a remote user's identity.
 
-Wire IDs should use decimal strings, object kind and project ID to preserve integer
-precision. Rational times must retain exact numerator/denominator values.
-Preview IDs are provisional and must never become shared durable references until commit.
+The bounded surface intentionally exposes no media discovery/import/relink, resources,
+subscriptions, sampling, shell, process execution or arbitrary filesystem access. Clients
+prepare media in the desktop/CLI first, inspect results and save explicitly. MCP 2026-era
+features are not advertised; the official Python client 2.2.0 can negotiate the supported
+2025-11-25 profile automatically.
 
-Resources such as nle://project/{project_id}/sequence/{sequence_id} return detached state
-and revision. Poll changes_since or translate its records into protocol notifications.
-Attribution is caller-supplied metadata; authentication must determine who may claim an actor.
-
-Before exposing a server, implement transport authentication/authorization, filesystem
-scoping, request idempotency, session expiry and structured error mapping. File writes
-remain single-authority; independent process saves need conflict handling.
-Protocol tests must prove the same edit requests have the same state and history effects
-as local callers. Never expose stack traces or arbitrary filesystem access as tool output.
-
-The [official MCP architecture](https://modelcontextprotocol.io/specification/2025-11-25/architecture/index)
-informs protocol boundaries; it does not define the internal project model.
+[ADR 0012](adr/0012-local-mcp-adapter.md) records dependencies, limits and alternatives.
+[Protocol evaluation](mcp-evaluation.md) records actual execution and remaining platform checks.
