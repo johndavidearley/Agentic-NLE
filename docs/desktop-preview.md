@@ -100,7 +100,7 @@ Negative origins use a temporary packet-copy Matroska source, with frame/stream 
 and a 512 MiB output cap. It is removed when the cached source is replaced or the transport
 is destroyed. This does not alter the original file or persisted project locators.
 
-Worker loading defaults to a 10-second deadline; active playback without progress stops after five
+Worker loading uses a 20-second transport deadline with a 10-second worker readiness watchdog; active playback without progress stops after five
 seconds. Transfer is capped at 4 MiB queued/buffered data and 1 MiB per encoded preview image.
 Frames are resized to at most 960x540 and image transfers limited to roughly 30 fps; this is
 an inspection preview, not a lossless render path. The backend is fixed to FFmpeg with local
