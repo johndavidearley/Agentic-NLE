@@ -389,7 +389,8 @@ void Transport::start() {
                               QString::number(playback::milliseconds(sample.source)),
                               QString::number(playback::milliseconds(segment.source.end())),
                               playing_ ? "1" : "0", audible_ ? "1" : "0", QString::number(seek_ms),
-                              QString::number(poster), QString::number(shift)});
+                              QString::number(poster), QString::number(shift),
+                              QString::number(load_timeout_)});
 }
 void Transport::receive() {
     if (!socket_ || retiring_ || !segment_)
