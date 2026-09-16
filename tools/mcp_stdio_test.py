@@ -106,6 +106,10 @@ try:
         input='', capture_output=True, text=True, encoding='utf-8', timeout=5)
     assert competitor.returncode != 0 and 'project_locked' in competitor.stderr
     assert competitor.stdout == ''
+    cli_competitor = subprocess.run([str(cli), 'add-sequence', str(project), 'Competing edit'],
+        capture_output=True, text=True, encoding='utf-8', timeout=5)
+    assert cli_competitor.returncode != 0 and project.read_bytes() == original
+
     args = client.context('preview')
     args.update(label='Agent creates a review sequence', commands=[dict(op='create_sequence', name='Agent review',
         frame_duration=dict(value='1001', rate='30000'), **{'as': 'review'})])
@@ -162,6 +166,65 @@ try:
         assert link_client.tool('project_save', link_client.context('link'))['error']['code'] == 'save_conflict'
         assert project.read_bytes() == external
     link_client.close()
+
+    # Recovery is explicit and survives process termination without overwriting the project.
+    recoverable = root / 'recoverable.nle'
+    recoverable.write_bytes(original)
+    denied_recovery = subprocess.run([str(server), '--project', str(recoverable), '--recovery'],
+        input='', capture_output=True, text=True, encoding='utf-8', timeout=5)
+    assert denied_recovery.returncode != 0 and 'configuration' in denied_recovery.stderr
+    assert not Path(str(recoverable) + '.recovery-0').exists()
+    recovering = start(recoverable, '--allow-edit', '--allow-save', '--recovery')
+    assert not recovering.tool('history_undo', recovering.context('empty-undo'))['changed']
+    assert not Path(str(recoverable) + '.recovery-0').exists()
+    assert recovering.tool('project_get', {})['recovery_revision'] is None
+
+    first_recovered = None
+    for index in range(2):
+        args = recovering.context(f'recovery-preview-{index}')
+        args.update(label=f'Recovery {index}', commands=[dict(op='create_sequence', name=f'Recovered {index}')])
+        preview = recovering.tool('edit_preview', args)
+        commit = recovering.context(f'recovery-commit-{index}')
+        commit['proposal_id'] = preview['proposal_id']
+        result = recovering.tool('edit_commit', commit)
+        assert result['ok'] and result['recovery_error'] == ''
+        if index == 0:
+            first_recovered = recovering.tool('project_snapshot', dict(project_id=recovering.info['project_id']))['snapshot']
+    recovering.terminate()
+    assert recoverable.read_bytes() == original
+    # The second slot is the newest checkpoint; a torn checkpoint falls back to the first.
+    Path(str(recoverable) + '.recovery-1').write_bytes(b'truncated')
+    needs_choice = subprocess.run([str(server), '--project', str(recoverable), '--allow-edit', '--recovery'],
+        input='', capture_output=True, text=True, encoding='utf-8', timeout=5)
+    assert needs_choice.returncode != 0 and 'recovery_available' in needs_choice.stderr
+    restored = start(recoverable, '--allow-edit', '--allow-save', '--recovery', '--recover')
+    assert restored.info['dirty'] and restored.info['recovery_enabled']
+    assert restored.info['history']['undo_entries'] == 0
+    assert restored.tool('project_snapshot', dict(project_id=restored.info['project_id']))['snapshot'] == first_recovered
+    assert restored.tool('project_save', restored.context('keep-recovered'))['ok']
+    restored.close()
+    assert not Path(str(recoverable) + '.recovery-0').exists()
+    assert not Path(str(recoverable) + '.recovery-1').exists()
+    assert b'Recovered 0' in recoverable.read_bytes() and b'Recovered 1' not in recoverable.read_bytes()
+
+    # A checkpoint write failure must not falsely report that a successful edit failed.
+    failed_checkpoint = root / 'failed-checkpoint.nle'
+    failed_checkpoint.write_bytes(original)
+    failure = start(failed_checkpoint, '--allow-edit', '--allow-save', '--recovery')
+    Path(str(failed_checkpoint) + '.recovery-0').mkdir()
+    args = failure.context('preview')
+    args.update(label='Keep live work', commands=[dict(op='create_sequence', name='Live work')])
+    preview = failure.tool('edit_preview', args)
+    commit = failure.context('commit'); commit['proposal_id'] = preview['proposal_id']
+    result = failure.tool('edit_commit', commit)
+    assert result['ok'] and result['recovery_error']
+    assert failure.tool('edit_commit', commit) == result
+    assert failure.info['recovery_enabled']
+    Path(str(failed_checkpoint) + '.recovery-0').rmdir()
+    assert failure.tool('project_save', failure.context('save'))['ok']
+    assert failure.tool('project_get', {})['recovery_error'] == ''
+    failure.close()
+    assert b'Live work' in failed_checkpoint.read_bytes()
 
     oversized = start(project)
     result = oversized.raw(' ' * (1024 * 1024 + 1))

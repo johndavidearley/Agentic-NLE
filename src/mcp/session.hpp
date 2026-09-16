@@ -6,6 +6,7 @@ namespace nle::mcp {
 using Clock = std::chrono::steady_clock;
 struct Policy {
     bool allow_edit = false, allow_save = false;
+    std::optional<std::uint64_t> saved_revision;
     Actor actor{ActorId{"agent:mcp"}, ActorKind::Agent};
     std::chrono::seconds session_lifetime{3600}, proposal_lifetime{120};
     std::size_t max_proposals = 4, max_requests = 256, max_memo_bytes = 32 * 1024 * 1024;
@@ -14,7 +15,8 @@ class Session {
   public:
     Session(ProjectSnapshot project, Policy policy = {},
             std::function<void(const ProjectSnapshot &)> save = {},
-            std::function<Clock::time_point()> now = Clock::now);
+            std::function<Clock::time_point()> now = Clock::now,
+            std::function<void(const ProjectSnapshot &)> checkpoint = {});
     std::optional<Json> receive(std::string_view message);
     std::optional<Json> dispatch(const Json &message);
     ProjectSnapshot current() const { return editor_.snapshot(); }
@@ -31,7 +33,9 @@ class Session {
     };
     Editor editor_;
     Policy policy_;
-    std::function<void(const ProjectSnapshot &)> save_;
+    std::function<void(const ProjectSnapshot &)> save_, checkpoint_;
+    std::optional<std::uint64_t> recovery_revision_;
+    std::string recovery_error_;
     std::function<Clock::time_point()> now_;
     Clock::time_point expires_;
     std::string session_id_, project_id_;

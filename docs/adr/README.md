@@ -29,3 +29,5 @@ Milestone 4: [0010 Qt desktop and isolated preview worker](0010-desktop-playback
 Milestone 5: [0011 Shared source origins and decoded frame lookup](0011-source-origins-and-frame-index.md) — accepted.
 
 - [0012: Local MCP editing adapter](0012-local-mcp-adapter.md)
+
+- [0013: Shared document ownership and recovery checkpoints](0013-document-ownership-and-recovery.md)

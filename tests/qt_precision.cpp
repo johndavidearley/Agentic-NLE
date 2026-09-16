@@ -191,8 +191,18 @@ int main(int argc, char **argv) {
                              }
                          });
         transport.open(long_plan);
+        // Keep the measured playback deadline independent of asynchronous indexing/loading.
+        CHECK(wait_for([&] { return !transport.loading(); }, 35000));
+        CHECK(transport.status() == "Paused");
+        observations.clear();
         transport.play();
-        CHECK(wait_for([&] { return transport.position() >= RationalTime{11}; }, 16000));
+        if (!wait_for([&] { return transport.position() >= RationalTime{11}; }, 16000)) {
+            std::cerr << "Long playback failed: status=" << transport.status().toStdString()
+                      << " position=" << transport.position().value() << '/'
+                      << transport.position().rate() << " observations=" << observations.size()
+                      << '\n';
+            throw std::runtime_error("long playback did not reach 11 seconds in 16 seconds");
+        }
         qint64 first_audio = -1, first_video = -1;
         double early = 0, late = 0;
         int early_count = 0, late_count = 0;

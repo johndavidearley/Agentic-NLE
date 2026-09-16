@@ -1,6 +1,6 @@
 # Architecture
 
-Implemented through Milestone 6 — Local Agent Editing through MCP.
+Implemented through Milestone 6; Milestone 7 document ownership/recovery is under validation.
 
 ~~~text
 Qt desktop -----+
@@ -81,7 +81,8 @@ See [native format](native-format.md).
 The desktop's import, append, trim/position, split, delete and undo/redo actions all use
 Editor or Transaction with human attribution and expected revisions. Probe work runs
 outside the UI thread; a changed project/revision rejects its stale result. Saving uses
-native persistence. No UI state, active transport or undo stack is needed to reopen a project.
+the shared DocumentFile service with cooperative ownership and expected-file checks. Two
+validated checkpoint slots support explicit recovery; see [project recovery](project-recovery.md). No UI state, active transport or undo stack is needed to reopen a project.
 
 A validated preview plan is a detached, revision-labelled copy of one populated track.
 The Qt transport sends a source path/range to a separate worker over a private local socket.
@@ -124,5 +125,7 @@ The audit cap is 10,000 durable operations. There is no silent loss of audit met
 
 The [benchmark](performance.md) measures 100-command transactions on 1,000/10,000 clips.
 This validates a bounded milestone workload, not professional-scale performance.
-Independent processes, distributed merges, authentication, idempotency, decoder/render
-determinism, seamless playback and advanced timeline interaction remain outside this implementation.
+Independent live Editors, distributed merges, remote authentication, durable retry replay,
+decoder/render determinism, seamless playback and advanced timeline interaction remain outside
+this implementation. MCP has process-local retry protection; desktop/CLI/MCP writes share
+cooperative file ownership, and recovery restores checkpoints without restoring sessions.

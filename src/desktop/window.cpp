@@ -1,7 +1,9 @@
 #include "desktop/window.hpp"
 #include "project/persistence.hpp"
 #include <QCloseEvent>
+#include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -16,6 +18,7 @@
 #include <QtConcurrentRun>
 #include <algorithm>
 #include <charconv>
+#include <set>
 namespace nle::desktop {
 namespace {
 double seconds(RationalTime t) {
@@ -141,9 +144,10 @@ void Timeline::mousePressEvent(QMouseEvent *event) {
             }
     emit sought(time);
 }
-Window::Window(QString worker, QString ffprobe, bool audible)
+Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDirectory)
     : editor_(std::make_unique<Editor>("Untitled")), saved_(editor_->snapshot()),
-      ffprobe_(std::move(ffprobe)), transport_(std::move(worker), audible, this, ffprobe_) {
+      recoveryDirectory_(std::move(recoveryDirectory)), ffprobe_(std::move(ffprobe)),
+      transport_(std::move(worker), audible, this, ffprobe_) {
     setWindowTitle("Agentic NLE");
     resize(1360, 850);
     auto *toolbar = addToolBar("Project");
@@ -155,13 +159,21 @@ Window::Window(QString worker, QString ffprobe, bool audible)
     action("New", [this] {
         if (!mayDiscard())
             return;
-        transport_.cancel();
-        editor_ = std::make_unique<Editor>("Untitled");
-        saved_ = editor_->snapshot();
-        sequence_ = {};
-        selected_ = {};
-        path_.clear();
-        refresh();
+        try {
+            if (document_)
+                document_->discard_recovery();
+            document_.reset();
+            transport_.cancel();
+            editor_ = std::make_unique<Editor>("Untitled");
+            saved_ = editor_->snapshot();
+            sequence_ = {};
+            selected_ = {};
+            path_.clear();
+            startDraft();
+            refresh();
+        } catch (const std::exception &error) {
+            report(error.what());
+        }
     });
     action("Open…", [this] {
         if (!mayDiscard())
@@ -185,6 +197,20 @@ Window::Window(QString worker, QString ffprobe, bool audible)
             } catch (const std::exception &e) {
                 report(e.what());
             }
+    });
+    action("Save As…", [this] {
+        const auto file =
+            QFileDialog::getSaveFileName(this, "Save project copy", path_, "NLE projects (*.nle)");
+        if (!file.isEmpty())
+            try {
+                saveProject(file);
+            } catch (const std::exception &error) {
+                report(error.what());
+            }
+    });
+    action("Recover draft…", [this] {
+        if (mayDiscard() && !restoreDrafts())
+            report("No available unsaved draft was found.");
     });
     toolbar->addSeparator();
     action("Import media…", [this] {
@@ -377,6 +403,14 @@ Window::Window(QString worker, QString ffprobe, bool audible)
     auto *redoKey = new QShortcut(QKeySequence::Redo, this);
     connect(redoKey, &QShortcut::activated, redo_, &QPushButton::click);
     refresh();
+    try {
+        startDraft();
+    } catch (const std::exception &error) {
+        report(error.what());
+    }
+    recoveryTimer_.setInterval(30000);
+    connect(&recoveryTimer_, &QTimer::timeout, this, [this] { (void)checkpointRecovery(); });
+    recoveryTimer_.start();
 }
 Window::~Window() {
     if (importStop_)
@@ -394,6 +428,16 @@ void Window::closeEvent(QCloseEvent *event) {
         event->ignore();
         return;
     }
+    try {
+        if (document_)
+            document_->discard_recovery();
+    } catch (const std::exception &error) {
+        report(error.what());
+        event->ignore();
+        return;
+    }
+    recoveryTimer_.stop();
+    document_.reset();
     if (importStop_)
         importStop_->store(true);
     transport_.cancel();
@@ -507,24 +551,156 @@ void Window::edit(const Command &command, const std::string &label) {
         report(e.what());
     }
 }
-void Window::openProject(const QString &path) {
-    auto loaded = load_project(media::utf8_path(path.toStdString()));
+void Window::startDraft() {
+    if (recoveryDirectory_.isEmpty())
+        return;
+    if (!QDir().mkpath(recoveryDirectory_))
+        throw DomainError(
+            "Cannot create the draft recovery folder. Save the project to enable recovery.");
+    const auto anchor =
+        QDir(recoveryDirectory_).filePath("draft-" + QString::number(saved_.id.value) + ".nle");
+    document_ = std::make_unique<DocumentFile>(media::utf8_path(anchor.toStdString()), true, true);
+}
+bool Window::checkpointRecovery() {
+    const auto value = editor_->snapshot();
+    if (value == saved_)
+        return true;
+    try {
+        if (!document_)
+            throw DomainError("Save this project once to enable recovery.");
+        document_->checkpoint(value);
+        return true;
+    } catch (const std::exception &error) {
+        report(QString("Recovery checkpoint failed: ") + error.what());
+        return false;
+    }
+}
+bool Window::restoreDrafts(RecoveryChoice choice) {
+    if (recoveryDirectory_.isEmpty())
+        return false;
+    const auto files =
+        QDir(recoveryDirectory_)
+            .entryList({"*.nle.recovery-0", "*.nle.recovery-1"}, QDir::Files, QDir::Time);
+    std::set<QString> visited;
+    for (const auto &file : files) {
+        const auto anchor = QDir(recoveryDirectory_).filePath(file.left(file.size() - 11));
+        if (!visited.insert(anchor).second ||
+            (document_ && document_->matches(media::utf8_path(anchor.toStdString()))))
+            continue;
+        try {
+            openDocument(anchor, choice, true);
+            return true;
+        } catch (const FileError &error) {
+            if (error.code == "open_cancelled")
+                return false;
+            if (error.code != "project_locked")
+                report(error.what());
+        } catch (const std::exception &error) {
+            report(error.what());
+        }
+    }
+    return false;
+}
+void Window::openProject(const QString &path, RecoveryChoice choice) {
+    openDocument(path, choice, false);
+}
+void Window::openDocument(const QString &path, RecoveryChoice choice, bool draft) {
+    const auto native = media::utf8_path(path.toStdString());
+    std::unique_ptr<DocumentFile> next;
+    auto *file = document_.get();
+    if (!file || !file->matches(native)) {
+        next = std::make_unique<DocumentFile>(native, true, draft);
+        file = next.get();
+    } else if (file->exists() && load_project(native) != file->load()) {
+        throw FileError("save_conflict", "The saved file changed outside this editor. Save your "
+                                         "work to another path before reopening it.");
+    }
+    const auto baseline = file->exists() ? file->load() : Editor("Untitled").snapshot();
+    auto loaded = baseline;
+    const auto pending = file->recovery();
+    if (draft && !pending.project)
+        throw FileError("recovery_unavailable", "No valid checkpoint is available for this draft.");
+    if (pending.project) {
+        if (choice == RecoveryChoice::Ask) {
+            QMessageBox dialog(QMessageBox::Question, "Recover unsaved work",
+                               "A recovery checkpoint is available for " +
+                                   QString::fromStdString(pending.project->name) +
+                                   ". Recover it or discard it and use the saved version?" +
+                                   (pending.warning.empty()
+                                        ? QString{}
+                                        : "\n" + QString::fromStdString(pending.warning)),
+                               QMessageBox::NoButton, this);
+            auto *recover = dialog.addButton("Recover", QMessageBox::AcceptRole);
+            auto *discard = dialog.addButton("Discard recovery", QMessageBox::DestructiveRole);
+            dialog.addButton(QMessageBox::Cancel);
+            dialog.exec();
+            if (dialog.clickedButton() == recover)
+                choice = RecoveryChoice::Recover;
+            else if (dialog.clickedButton() == discard)
+                choice = RecoveryChoice::Discard;
+            else
+                throw FileError("open_cancelled", "Project opening was cancelled.");
+        }
+        if (choice == RecoveryChoice::Recover)
+            loaded = file->recover();
+        else
+            file->discard_recovery();
+    }
+    if (!pending.project && !pending.warning.empty()) {
+        if (choice == RecoveryChoice::Ask) {
+            const auto decision = QMessageBox::warning(
+                this, "Recovery unavailable",
+                QString::fromStdString(pending.warning) +
+                    "\nDiscard these checkpoints and open the saved project?",
+                QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Cancel);
+            if (decision != QMessageBox::Discard)
+                throw FileError("open_cancelled", "Project opening was cancelled.");
+            choice = RecoveryChoice::Discard;
+        }
+        if (choice == RecoveryChoice::Recover)
+            throw FileError("recovery_unavailable",
+                            "No matching valid recovery checkpoint is available.");
+        file->discard_recovery();
+    }
     auto replacement = std::make_unique<Editor>(loaded);
+    if (next && document_)
+        document_->discard_recovery();
     transport_.cancel();
+    if (next)
+        document_ = std::move(next);
     editor_ = std::move(replacement);
-    saved_ = std::move(loaded);
-    path_ = path;
+    saved_ = baseline;
+    path_ = draft ? QString{} : path;
     sequence_ = {};
     selected_ = {};
     refresh();
+    if (pending.project && choice == RecoveryChoice::Recover)
+        report("Recovered unsaved work. Save the project to keep this version.");
+    else if (!pending.warning.empty())
+        report(QString::fromStdString(pending.warning));
 }
 void Window::saveProject(const QString &path) {
     const auto value = editor_->snapshot();
-    save_project(value, media::utf8_path(path.toStdString()));
+    const auto native = media::utf8_path(path.toStdString());
+    std::string warning;
+    if (document_ && document_->matches(native))
+        document_->save(value);
+    else {
+        auto next = std::make_unique<DocumentFile>(native, true, true);
+        next->save(value);
+        if (document_)
+            try {
+                document_->discard_recovery();
+            } catch (const std::exception &) {
+                warning = " An old recovery checkpoint could not be removed.";
+            }
+        document_ = std::move(next);
+    }
+    warning += document_->cleanup_warning();
     saved_ = value;
     path_ = path;
     setWindowTitle(QString::fromStdString(value.name) + " — Agentic NLE");
-    report("Project saved");
+    report("Project saved" + QString::fromStdString(warning));
 }
 void Window::importMedia(const QString &path) {
     if (watcher_.isRunning()) {

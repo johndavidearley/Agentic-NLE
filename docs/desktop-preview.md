@@ -57,7 +57,9 @@ next to ffprobe (or both on PATH) for a verified temporary packet-copy source.
    1001/30000 are accepted. Apply, Split and Delete use the core commands. Invalid edits
    preserve the document. Undo/redo restores the same editable timeline.
 5. Save/Open use native version 4. Versions 1–3 migrate while preserving their timing semantics.
-   Closing or replacing an unsaved document prompts before discarding changes. Undo history remains session-local, as it does in the CLI.
+   Closing or replacing an unsaved document prompts before discarding changes.
+   Dirty documents receive recovery checkpoints every 30 seconds; [project recovery](project-recovery.md)
+   explains draft restoration, Save As and shared writer ownership. Undo history remains session-local, as it does in the CLI.
 
 Use Probe tool… to choose ffprobe if it is not on PATH. Existing offline assets can be
 relinked with the CLI's verified relink command; reopen the saved project afterward.

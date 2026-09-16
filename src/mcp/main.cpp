@@ -14,7 +14,7 @@ int run(const std::vector<std::string> &args) {
     try {
         Policy policy;
         std::string project;
-        bool actor_seen = false;
+        bool actor_seen = false, recovery = false, recover = false, discard = false;
         for (std::size_t i = 1; i < args.size(); ++i) {
             if (args[i] == "--project" && project.empty() && i + 1 < args.size())
                 project = args[++i];
@@ -25,18 +25,50 @@ int run(const std::vector<std::string> &args) {
                 policy.allow_edit = true;
             else if (args[i] == "--allow-save" && !policy.allow_save)
                 policy.allow_save = true;
+            else if (args[i] == "--recovery" && !recovery)
+                recovery = true;
+            else if (args[i] == "--recover" && !recover && !discard)
+                recover = true;
+            else if (args[i] == "--discard-recovery" && !discard && !recover)
+                discard = true;
             else
-                throw Failure(
-                    "configuration",
-                    "Usage: editor-mcp --project FILE [--actor ID] [--allow-edit] [--allow-save]");
+                throw Failure("configuration",
+                              "Usage: editor-mcp --project FILE [--actor ID] [--allow-edit] "
+                              "[--allow-save] [--recovery [--recover|--discard-recovery]]");
         }
         if (project.empty())
             throw Failure("configuration", "Select one existing project with --project FILE.");
         std::u8string path;
         for (char c : project)
             path.push_back(static_cast<char8_t>(static_cast<unsigned char>(c)));
-        ProjectFile file(std::filesystem::path(path), policy.allow_save);
-        Session session(file.load(), policy, [&](const auto &state) { file.save(state); });
+        if ((recovery && !policy.allow_edit) || ((recover || discard) && !recovery))
+            throw Failure("configuration", "Recovery requires --recovery and --allow-edit; it "
+                                           "separately permits checkpoint writes.");
+        ProjectFile file(std::filesystem::path(path), policy.allow_save || recovery);
+        auto state = file.load();
+        policy.saved_revision = state.revision;
+        if (recovery) {
+            const auto pending = file.recovery();
+            if (discard)
+                file.discard_recovery();
+            else if (recover) {
+                if (!pending.project)
+                    throw Failure("recovery_unavailable",
+                                  "No matching valid recovery checkpoint is available.");
+                state = file.recover();
+                if (!pending.warning.empty())
+                    std::cerr << pending.warning << '\n';
+            } else if (pending.project || !pending.warning.empty())
+                throw Failure(
+                    "recovery_available",
+                    "Recovery files exist. Select --recover or --discard-recovery explicitly.");
+        }
+        std::function<void(const nle::ProjectSnapshot &)> checkpoint;
+        if (recovery)
+            checkpoint = [&](const auto &snapshot) { file.checkpoint(snapshot); };
+        Session session(
+            std::move(state), policy, [&](const auto &snapshot) { file.save(snapshot); },
+            Clock::now, checkpoint);
         std::string line;
         char byte{};
         while (std::cin.get(byte)) {
@@ -62,6 +94,8 @@ int run(const std::vector<std::string> &args) {
             }
         }
         return std::cin.bad() ? 1 : 0;
+    } catch (const nle::FileError &error) {
+        std::cerr << error.code << ": " << error.what() << '\n';
     } catch (const Failure &error) {
         std::cerr << error.code << ": " << error.what() << '\n';
     } catch (const std::exception &) {

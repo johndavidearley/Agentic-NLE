@@ -1,4 +1,5 @@
 #include "mcp/session.hpp"
+#include "project/document.hpp"
 #include <algorithm>
 #include <iomanip>
 #include <random>
@@ -19,9 +20,11 @@ bool letter(char value) { return (value >= 'a' && value <= 'z') || (value >= 'A'
 } // namespace
 Session::Session(ProjectSnapshot project, Policy policy,
                  std::function<void(const ProjectSnapshot &)> save,
-                 std::function<Clock::time_point()> now)
+                 std::function<Clock::time_point()> now,
+                 std::function<void(const ProjectSnapshot &)> checkpoint)
     : editor_(std::move(project)), policy_(std::move(policy)), save_(std::move(save)),
-      now_(std::move(now)), expires_(now_() + policy_.session_lifetime) {
+      checkpoint_(std::move(checkpoint)), now_(std::move(now)),
+      expires_(now_() + policy_.session_lifetime) {
     validate_actor(policy_.actor);
     if (policy_.actor.kind != ActorKind::Agent ||
         policy_.session_lifetime <= std::chrono::seconds::zero() ||
@@ -31,7 +34,7 @@ Session::Session(ProjectSnapshot project, Policy policy,
     if (snapshot_bytes(state) > 8 * 1024 * 1024)
         throw Failure("project_limit", "Project exceeds the 8 MiB accounted session profile.");
     project_id_ = std::to_string(state.id.value);
-    saved_revision_ = state.revision;
+    saved_revision_ = policy_.saved_revision.value_or(state.revision);
     std::random_device random;
     std::ostringstream nonce;
     nonce << std::hex << std::setfill('0');
@@ -50,6 +53,10 @@ Json Session::info() const {
     result["actor_id"] = policy_.actor.id.value;
     result["allow_edit"] = policy_.allow_edit;
     result["allow_save"] = policy_.allow_save;
+    result["recovery_enabled"] = static_cast<bool>(checkpoint_);
+    result["recovery_revision"] =
+        recovery_revision_ ? Json(std::to_string(*recovery_revision_)) : Json(nullptr);
+    result["recovery_error"] = recovery_error_;
     result["dirty"] = editor_.revision() != saved_revision_;
     result["expires_in_seconds"] = std::max<std::int64_t>(
         0, std::chrono::duration_cast<std::chrono::seconds>(expires_ - now_()).count());
@@ -203,6 +210,8 @@ Json Session::run(const std::string &name, const Json &a) {
             throw RevisionConflict("Expected revision is stale.");
         save_(editor_.snapshot());
         saved_revision_ = editor_.revision();
+        recovery_error_.clear();
+        recovery_revision_.reset();
         auto result = outcome();
         result["saved_revision"] = std::to_string(saved_revision_);
         return result;
@@ -212,10 +221,27 @@ Json Session::run(const std::string &name, const Json &a) {
 Json Session::call(const std::string &name, const Json &arguments) {
     const auto safely = [&]() -> Json {
         try {
-            return run(name, arguments);
+            auto result = run(name, arguments);
+            const bool changed = (name == "edit_commit" && !result.at("operation_id").is_null()) ||
+                                 ((name == "history_undo" || name == "history_redo") &&
+                                  result.at("changed").get<bool>());
+            if (checkpoint_ && changed) {
+                try {
+                    checkpoint_(editor_.snapshot());
+                    recovery_revision_ = editor_.revision();
+                    recovery_error_.clear();
+                } catch (const std::exception &) {
+                    recovery_error_ = "Edit succeeded, but recovery checkpoint failed. Save "
+                                      "explicitly before closing.";
+                }
+                result["recovery_error"] = recovery_error_;
+            }
+            return result;
         } catch (const RevisionConflict &) {
             return failure("revision_conflict", "Expected revision is stale; inspect the current "
                                                 "project and prepare a new request.");
+        } catch (const FileError &e) {
+            return failure(e.code, e.what());
         } catch (const Failure &e) {
             return failure(e.code, e.what());
         } catch (const DomainError &e) {
@@ -322,7 +348,7 @@ std::optional<Json> Session::dispatch(const Json &message) {
             initialized_ = true;
             return response(
                 {{"protocolVersion", "2025-11-25"},
-                 {"serverInfo", {{"name", "agentic-nle"}, {"version", "0.6.0"}}},
+                 {"serverInfo", {{"name", "agentic-nle"}, {"version", "0.7.0"}}},
                  {"capabilities", {{"tools", {{"listChanged", false}}}}},
                  {"instructions",
                   "Start with project_get. Edits require edit_preview then edit_commit; saving is "

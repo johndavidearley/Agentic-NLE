@@ -1,12 +1,16 @@
 # Agentic NLE
 
 A professional open-source video editor designed for human editors and software agents.
-This repository implements **Milestone 6 — Local Agent Editing through MCP**.
+Milestone 6 — Local Agent Editing through MCP is complete.
+**Milestone 7 — Reliable Projects and Recovery** is in progress.
 An optional Qt desktop imports media, previews a sequence, and provides command-based
 trim, position, split, delete and undo/redo controls. Paused seeks and frame stepping use a
 decoded-frame index, and shared source clocks preserve stream offsets. The headless CLI remains available.
 An optional local MCP server gives agents detached previews, grouped commits, undo/redo and
 explicit saves through the same engine. There is no export pipeline yet.
+
+The [next development phase](docs/next-milestones.md) plans recovery, multi-track playback,
+practical timeline editing, export and shared human/agent sessions through an installable alpha.
 
 The C++20 core provides typed persistent identities, exact rational time, detached
 inspection snapshots, validated commands, grouped transactions, revisions, actor/operation attribution, bounded undo/redo, and versioned native persistence.
@@ -77,6 +81,8 @@ undoable edit, and save explicitly. The core and server do not require Qt.
 
 See [setup and workflow](docs/agent-editing.md) and [validation](docs/mcp-evaluation.md).
 The native project remains editable in the desktop after the agent session is closed.
+[Project recovery](docs/project-recovery.md) describes shared save protection, desktop
+checkpoints and optional MCP recovery.
 
 ## Run the headless vertical slice
 
@@ -147,7 +153,7 @@ limited to 16 MiB/100,000 nested records; versions 1–3 migrate to version 4 on
 Open transactions and undo history are not persisted.
 
 Concurrent desktop/MCP editing, crash-safe retry recovery, authenticated remote attribution,
-audit compaction, power-loss durability and crash recovery remain out of scope. MCP retries
+audit compaction, power-loss durability and durable command replay remain out of scope. MCP retries
 are protected only within one live session. Use one authoritative Editor per project. Exact time arithmetic retains milestone 1's conservative overflow limits;
 negative edit positions, snapping, speed changes, linked A/V edits and transitions remain deferred.
 

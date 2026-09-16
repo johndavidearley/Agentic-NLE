@@ -2,6 +2,7 @@
 #include "commands/editor.hpp"
 #include "desktop/transport.hpp"
 #include "media/probe.hpp"
+#include "project/document.hpp"
 #include <QComboBox>
 #include <QFutureWatcher>
 #include <QLabel>
@@ -10,6 +11,7 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QSlider>
+#include <QTimer>
 #include <atomic>
 namespace nle::desktop {
 class Timeline : public QWidget {
@@ -40,16 +42,19 @@ struct ImportResult {
     std::optional<media::ProbeResult> result;
     QString error;
 };
+enum class RecoveryChoice { Ask, Recover, Discard };
 class Window : public QMainWindow {
     Q_OBJECT
   public:
-    Window(QString worker, QString ffprobe, bool audible = true);
+    Window(QString worker, QString ffprobe, bool audible = true, QString recoveryDirectory = {});
     ~Window() override;
     ProjectSnapshot snapshot() const { return editor_->snapshot(); }
     void importMedia(const QString &path);
     bool importing() const { return watcher_.isRunning(); }
     void appendSelected();
-    void openProject(const QString &path);
+    void openProject(const QString &path, RecoveryChoice choice = RecoveryChoice::Ask);
+    bool checkpointRecovery();
+    bool restoreDrafts(RecoveryChoice choice = RecoveryChoice::Ask);
     void saveProject(const QString &path);
     void setPlayhead(RationalTime position) { transport_.seek(position); }
     Transport &transport() { return transport_; }
@@ -64,9 +69,14 @@ class Window : public QMainWindow {
     void edit(const Command &command, const std::string &label);
     void report(const QString &message);
     bool mayDiscard();
+    void startDraft();
+    void openDocument(const QString &path, RecoveryChoice choice, bool draft);
     const Clip *selectedClip(const ProjectSnapshot &project) const;
     std::unique_ptr<Editor> editor_;
     ProjectSnapshot saved_;
+    std::unique_ptr<DocumentFile> document_;
+    QString recoveryDirectory_;
+    QTimer recoveryTimer_;
     SequenceId sequence_{};
     ClipId selected_{};
     QString path_, ffprobe_;

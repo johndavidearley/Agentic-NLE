@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QMessageBox>
+#include <QStandardPaths>
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
     app.setApplicationName("Agentic NLE");
@@ -21,7 +22,9 @@ int main(int argc, char **argv) {
 #ifdef _WIN32
     worker += ".exe";
 #endif
-    nle::desktop::Window window(worker, ffprobe);
+    nle::desktop::Window window(
+        worker, ffprobe, true,
+        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/recovery");
     window.show();
     if (!project.isEmpty())
         try {
@@ -29,5 +32,7 @@ int main(int argc, char **argv) {
         } catch (const std::exception &error) {
             QMessageBox::critical(&window, "Cannot open project", QString::fromUtf8(error.what()));
         }
+    if (project.isEmpty())
+        (void)window.restoreDrafts();
     return app.exec();
 }

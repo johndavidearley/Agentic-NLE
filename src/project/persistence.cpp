@@ -1,4 +1,5 @@
 #include "project/persistence.hpp"
+#include "project/file_io.hpp"
 #include <charconv>
 #include <fstream>
 #include <iomanip>
@@ -327,7 +328,10 @@ ProjectSnapshot deserialize(std::string_view data) {
 }
 
 void save_project(const ProjectSnapshot &project, const std::filesystem::path &path) {
-    const auto data = serialize(project); // Validate before touching disk.
+    detail::atomic_write_file(serialize(project), path);
+}
+
+void detail::atomic_write_file(std::string_view data, const std::filesystem::path &path) {
     auto parent = path.parent_path();
     if (parent.empty())
         parent = ".";

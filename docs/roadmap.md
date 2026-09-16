@@ -101,10 +101,32 @@ and core remain unchanged. [MCP evaluation](mcp-evaluation.md) records results a
 Cross-platform CI is configured; its execution remains pending. Multi-track playback, agent
 media import, remote transport and concurrent desktop/server editing remain separate work.
 
+## Planned next phase — a usable editing workflow
+
+Proposed 2026-09-15; Milestone 7 started 2026-09-16. Later milestones remain planned. The recommended sequence first completes
+human editing and export, then integrates agent media preparation and the open desktop session.
+See [the detailed plan](next-milestones.md) for scope, dependencies, acceptance tests and limits.
+
+| Milestone | Main outcome | Status |
+| --- | --- | --- |
+| 7 — Reliable Projects and Recovery | Verified platform baseline, coordinated saves and recoverable desktop work | In progress |
+| 8 — Multi-track Playback | B-roll, dialogue and music play together with defined routing and timing | Planned |
+| 9 — Practical Timeline Editing | Zoom, scroll, drag, trim, snap, thumbnails and waveforms | Planned |
+| 10 — Export a Finished Video | A validated output file matching the supported sequence | Planned |
+| 11 — Agent Media Preparation | Approved import/relink and observable export jobs through MCP | Planned |
+| 12 — Shared Human and Agent Editing | One live project, visible proposals and one undo history | Planned |
+| 13 — Installable Alpha | Packaged and verified complete workflows on the supported platforms | Planned |
+
+Milestone 7 is in progress. See [recovery behavior](project-recovery.md) and
+[validation status](recovery-evaluation.md). Milestone 8 begins with a bounded backend
+prototype before adopting a multi-track implementation. Milestone 10 completes the first
+human import/edit/export workflow; Milestone 12 completes the shared local agent workflow.
+Each milestone needs its own measured exit evidence before it can be marked complete.
+
 ## Later work
 
-Seamless/multi-track playback; agent media import; interchange and explicit lossy conversion
-reporting. Audit compaction, independent-writer save conflicts,
-UUID remapping, more efficient history and crash durability need separate bounded work as
-their use cases arrive. Color, compositing, multicam, broad effects, advanced audio and
-collaboration remain out of scope.
+Interchange with explicit loss reporting and identity remapping; proxies and larger projects;
+ripple/linked editing; titles, captions, transitions and basic color tools. Audit compaction,
+more efficient history and power-loss durability need separate measured and versioned work.
+Multicam, broad effects, advanced audio, AI media generation, cloud collaboration and a plugin
+marketplace remain beyond the planned phase. Reassess priorities after alpha use.

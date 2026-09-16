@@ -5,3 +5,6 @@
 /aqtinstall.log
 
 *.mcp-lock
+
+*.recovery-0
+*.recovery-1

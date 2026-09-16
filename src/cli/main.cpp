@@ -1,5 +1,6 @@
 #include "commands/editor.hpp"
 #include "media/probe.hpp"
+#include "project/document.hpp"
 #include "project/persistence.hpp"
 #include <charconv>
 #include <filesystem>
@@ -114,7 +115,8 @@ int run(int argc, char **argv) {
             std::cerr
                 << "Usage: editor-cli new FILE [NAME] | add-sequence FILE NAME | inspect FILE"
                    " | demo FILE | session-demo FILE | probe MEDIA [FFPROBE] | import PROJECT "
-                   "MEDIA [FFPROBE] | relink PROJECT ID MEDIA [FFPROBE] | media-status PROJECT\n";
+                   "MEDIA [FFPROBE] | relink PROJECT ID MEDIA [FFPROBE] | media-status PROJECT"
+                   " | recovery-inspect FILE | recover FILE | discard-recovery FILE\n";
             return 2;
         }
         const std::string_view operation = argv[1];
@@ -125,14 +127,15 @@ int run(int argc, char **argv) {
             std::cout << result.uri << '\n';
             inspect_source(result.source);
         } else if (operation == "import" && (argc == 4 || argc == 5)) {
-            nle::Editor editor(nle::load_project(path));
+            nle::DocumentFile document(path, true);
+            nle::Editor editor(document.load());
             const auto revision = editor.revision();
             const auto result =
                 nle::media::probe(nle::media::utf8_path(argv[3]),
                                   argc == 5 ? nle::media::utf8_path(argv[4]) : "ffprobe");
             const auto added =
                 editor.execute(result.import_command(), {{}, "Import media", revision});
-            nle::save_project(editor.snapshot(), path);
+            document.save(editor.snapshot());
             std::cout << "Imported media=" << added.media->value << '\n';
         } else if (operation == "relink" && (argc == 5 || argc == 6)) {
             nle::MediaId id;
@@ -141,29 +144,50 @@ int run(int argc, char **argv) {
                 std::from_chars(text.data(), text.data() + text.size(), id.value);
             if (error != std::errc{} || end != text.data() + text.size() || !id.value)
                 throw nle::DomainError("invalid media ID");
-            nle::Editor editor(nle::load_project(path));
+            nle::DocumentFile document(path, true);
+            nle::Editor editor(document.load());
             const auto revision = editor.revision();
             const auto result =
                 nle::media::probe(nle::media::utf8_path(argv[4]),
                                   argc == 6 ? nle::media::utf8_path(argv[5]) : "ffprobe");
             (void)editor.execute(result.relink_command(id),
                                  {{}, "Relink verified media", revision});
-            nle::save_project(editor.snapshot(), path);
+            document.save(editor.snapshot());
             std::cout << "Relinked media=" << id.value << '\n';
         } else if (operation == "new" && (argc == 3 || argc == 4)) {
-            if (std::filesystem::exists(path))
+            nle::DocumentFile document(path, true, true);
+            if (document.exists())
                 throw nle::DomainError("new requires a path that does not exist");
             nle::Editor editor(argc == 4 ? argv[3] : "Untitled");
-            nle::save_project(editor.snapshot(), path);
+            document.save(editor.snapshot());
         } else if (operation == "add-sequence" && argc == 4) {
-            nle::Editor editor(nle::load_project(path));
+            nle::DocumentFile document(path, true);
+            nle::Editor editor(document.load());
             (void)editor.execute(nle::CreateSequence{argv[3]});
-            nle::save_project(editor.snapshot(), path);
+            document.save(editor.snapshot());
+        } else if ((operation == "recovery-inspect" || operation == "recover" ||
+                    operation == "discard-recovery") &&
+                   argc == 3) {
+            nle::DocumentFile document(path, operation != "recovery-inspect");
+            const auto recovery = document.recovery();
+            if (operation == "discard-recovery") {
+                document.discard_recovery();
+                std::cout << "Recovery checkpoints discarded\n";
+            } else {
+                if (!recovery.warning.empty())
+                    std::cerr << recovery.warning << '\n';
+                if (!recovery.project)
+                    throw nle::DomainError("no matching valid recovery checkpoint");
+                if (operation == "recover")
+                    document.save(document.recover());
+                inspect(*recovery.project);
+            }
         } else if ((operation == "inspect" || operation == "media-status") && argc == 3) {
             inspect(nle::load_project(path));
         } else if ((operation == "demo" || operation == "session-demo") && argc == 3) {
+            nle::DocumentFile document(path, true, true);
             auto editor = operation == "demo" ? demo() : session_demo();
-            nle::save_project(editor, path);
+            document.save(editor);
             const auto reloaded = nle::load_project(path);
             if (editor != reloaded)
                 throw nle::DomainError("demo round-trip failed");

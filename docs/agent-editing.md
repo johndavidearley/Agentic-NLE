@@ -124,15 +124,17 @@ recorded requests and reserves one final save-only entry. Previews and recorded 
 It also has a 32 MiB serialized-payload budget; entries are never silently evicted. On
 session_limit, save the current project using the reserved request and restart. Save before
 session_expired: expiry prevents further tool operations. Retry guarantees end with the process;
-there is no crash-safe replay journal or automatic recovery of unsaved edits.
+there is no crash-safe replay journal. Optional --recovery checkpoints can retain unsaved
+state; see [project recovery](project-recovery.md) for explicit startup choices and limits.
 
 The configured native file is the only writable project path; no path, Save As, import,
 relink, shell or arbitrary-file tools exist. Saving sessions acquire an adjacent .mcp-lock
-file lock, which excludes another cooperative saving MCP process and releases on exit/crash.
+file lock, which now coordinates desktop, CLI and saving/recovery-enabled MCP sessions and releases on exit/crash.
 The empty sidecar remains for safe reuse. Existing project bytes are compared before saving;
 a missing/replaced/changed file returns save_conflict without overwriting it. Undo/redo and
 unsaved in-memory state are still available after a failed save. This check is not atomic
-coordination with a noncooperating writer between comparison and replacement.
+coordination with a noncooperating writer between comparison and replacement. Existing recovery
+files require an explicit recover/discard choice before saving over them.
 
 Requests are limited to 1 MiB and 64 JSON nesting levels; duplicate object members reject.
 An oversized input line closes the connection. Results are capped at 2 MiB before MCP's text/
