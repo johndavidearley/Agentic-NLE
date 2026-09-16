@@ -1,6 +1,6 @@
 # Next development phase: a usable editor for people and agents
 
-Proposed 2026-09-15, following Milestone 6 at commit 30f3024. Milestone 7 started on
+Proposed 2026-09-15, following Milestone 6 at commit 30f3024. Milestone 7 completed on
 2026-09-16; Milestones 8–13 remain planned. This plan recommends completing the editing workflow first.
 It defines deliverables and acceptance evidence, not calendar estimates or new backend choices.
 
@@ -25,7 +25,9 @@ Milestone 10 is the first complete human editing workflow. Milestone 12 complete
 human/agent workflow. Milestone 13 packages that scope for repeatable evaluation. Numbering
 expresses the recommended order; implementation still begins one milestone at a time.
 
-## Milestone 7 — Reliable Projects and Recovery
+## Milestone 7 — Reliable Projects and Recovery (complete)
+
+[Recorded validation](recovery-evaluation.md): all 28 platform CI jobs passed on `b2978a0`.
 
 **Outcome:** saved files and recent desktop work survive ordinary application interruptions,
 with an explicit recovery choice and dependable Windows/Linux/macOS validation.

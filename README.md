@@ -1,8 +1,10 @@
 # Agentic NLE
 
 A professional open-source video editor designed for human editors and software agents.
-Milestone 6 — Local Agent Editing through MCP is complete.
-**Milestone 7 — Reliable Projects and Recovery** is in progress.
+**Milestone 7 — Reliable Projects and Recovery** is complete.
+Desktop, CLI and MCP share protected saves; desktop drafts and opt-in MCP checkpoints
+can recover interrupted work. [Validation](docs/recovery-evaluation.md) records all 28 passing
+CI jobs on Windows, Linux and both macOS architectures.
 An optional Qt desktop imports media, previews a sequence, and provides command-based
 trim, position, split, delete and undo/redo controls. Paused seeks and frame stepping use a
 decoded-frame index, and shared source clocks preserve stream offsets. The headless CLI remains available.
@@ -49,7 +51,8 @@ ctest --test-dir build-release --output-on-failure
 ~~~
 
 macOS CI uses the explicit macos-15 (Apple Silicon) and macos-15-intel runners.
-macOS execution must be verified by CI; it has not been run from this Windows workspace.
+Both macOS architectures passed the Milestone 7 CI matrix; macOS was not executed locally
+from this Windows workspace.
 
 Warnings are errors. Formatting uses clang-format 19. Set
 -DCLANG_FORMAT=/path/to/clang-format when configuring if it is not on PATH,

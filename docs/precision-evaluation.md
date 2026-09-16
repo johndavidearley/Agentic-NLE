@@ -112,3 +112,9 @@ and are deleted with the cache. Unsupported or unverifiable sources report error
 persistent proxies, independent track mixing, seamless cuts, export, color-managed monitoring
 or sample-accurate audio boundaries are promised. [Desktop use](desktop-preview.md) describes
 the controls and supported range.
+
+## Subsequent platform validation
+
+Milestone 7 subsequently passed the complete platform matrix on 2026-09-16 at `b2978a0`.
+See [the recovery/platform validation record](recovery-evaluation.md) for the exact run,
+follow-up fixes and results. The measurements above remain the original milestone record.

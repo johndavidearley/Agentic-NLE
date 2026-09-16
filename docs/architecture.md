@@ -1,6 +1,7 @@
 # Architecture
 
-Implemented through Milestone 6; Milestone 7 document ownership/recovery is under validation.
+Implemented through Milestone 7, including shared document ownership and recovery.
+[Validation](recovery-evaluation.md) records the completed platform matrix.
 
 ~~~text
 Qt desktop -----+

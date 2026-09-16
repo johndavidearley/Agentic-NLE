@@ -79,7 +79,8 @@ alignment; frame seeks and stepping match decoded timestamps within integer resc
 legacy projects migrate predictably. A 12-second delayed-audio fixture measures decoder
 scheduling through 11 seconds. [Precision evaluation](precision-evaluation.md) records exact
 results, bounds and remaining platform validation. Linux/macOS CI is configured and updated
-for the observed baseline failures; execution of this milestone there remains pending.
+for the observed baseline failures; the later Milestone 7 run passed all configured platforms.
+See [the follow-up evidence](recovery-evaluation.md).
 Independent track mixing, seamless cuts, export and broad effects remain separate work.
 
 ## Milestone 6 — Local Agent Editing through MCP (complete)
@@ -98,18 +99,19 @@ equal direct core commands; stale, invalid, foreign, expired, unauthorized and d
 requests have tested outcomes. Save is bound to the configured file and detects ordinary
 external changes. Retry records are bounded and never silently evicted. The native format
 and core remain unchanged. [MCP evaluation](mcp-evaluation.md) records results and limits.
-Cross-platform CI is configured; its execution remains pending. Multi-track playback, agent
+All eight cross-platform MCP Debug/Release jobs subsequently passed in
+[Milestone 7 validation](recovery-evaluation.md). Multi-track playback, agent
 media import, remote transport and concurrent desktop/server editing remain separate work.
 
 ## Planned next phase — a usable editing workflow
 
-Proposed 2026-09-15; Milestone 7 started 2026-09-16. Later milestones remain planned. The recommended sequence first completes
+Proposed 2026-09-15; Milestone 7 completed 2026-09-16. Later milestones remain planned. The recommended sequence first completes
 human editing and export, then integrates agent media preparation and the open desktop session.
 See [the detailed plan](next-milestones.md) for scope, dependencies, acceptance tests and limits.
 
 | Milestone | Main outcome | Status |
 | --- | --- | --- |
-| 7 — Reliable Projects and Recovery | Verified platform baseline, coordinated saves and recoverable desktop work | In progress |
+| 7 — Reliable Projects and Recovery | Verified platform baseline, coordinated saves and recoverable desktop work | Complete |
 | 8 — Multi-track Playback | B-roll, dialogue and music play together with defined routing and timing | Planned |
 | 9 — Practical Timeline Editing | Zoom, scroll, drag, trim, snap, thumbnails and waveforms | Planned |
 | 10 — Export a Finished Video | A validated output file matching the supported sequence | Planned |
@@ -117,8 +119,10 @@ See [the detailed plan](next-milestones.md) for scope, dependencies, acceptance 
 | 12 — Shared Human and Agent Editing | One live project, visible proposals and one undo history | Planned |
 | 13 — Installable Alpha | Packaged and verified complete workflows on the supported platforms | Planned |
 
-Milestone 7 is in progress. See [recovery behavior](project-recovery.md) and
-[validation status](recovery-evaluation.md). Milestone 8 begins with a bounded backend
+Milestone 7 is complete: protected document saves, bounded recovery checkpoints and explicit
+recovery choices are verified with process termination, corrupt-checkpoint fallback and
+conflicting writers. All 28 platform CI jobs passed on `b2978a0`. See
+[recovery behavior](project-recovery.md) and [validation results](recovery-evaluation.md). Milestone 8 begins with a bounded backend
 prototype before adopting a multi-track implementation. Milestone 10 completes the first
 human import/edit/export workflow; Milestone 12 completes the shared local agent workflow.
 Each milestone needs its own measured exit evidence before it can be marked complete.

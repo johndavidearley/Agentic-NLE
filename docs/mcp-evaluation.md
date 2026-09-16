@@ -98,3 +98,9 @@ the normal budget fills. Expiry, process failure or EOF does not save unsaved ed
 there is no durable replay journal. Application message/project/history budgets do not
 constitute a whole-process memory or operating-system sandbox. Native version 4 and the
 Qt-free command core remain unchanged.
+
+## Subsequent platform validation
+
+Milestone 7 subsequently passed the complete platform matrix on 2026-09-16 at `b2978a0`.
+See [the recovery/platform validation record](recovery-evaluation.md) for the exact run,
+follow-up fixes and results. The measurements above remain the original milestone record.
