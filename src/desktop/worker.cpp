@@ -113,6 +113,10 @@ int main(int argc, char **argv) {
             return;
         QJsonObject message{{"type", "video"}, {"pts_us", pts}, {"end_us", finish}};
         if (!image_clock.isValid() || image_clock.elapsed() >= 30 || !playing) {
+            if (playing && socket.bytesToWrite() >= 2 * 1024 * 1024) {
+                send(message);
+                return;
+            }
             const auto image = frame.toImage().scaled(QSize(960, 540), Qt::KeepAspectRatio,
                                                       Qt::FastTransformation);
             if (image.isNull()) {
