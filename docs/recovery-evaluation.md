@@ -40,6 +40,15 @@ reach eleven seconds of playback within sixteen seconds and existing frame/skew/
 are retained. This removes preparation time from the measurement; it is not yet evidence that
 the Apple Silicon failure is fixed. Remote execution on the milestone revision is pending.
 
+The first Milestone 7 run,
+[35100708760](https://github.com/johndavidearley/Agentic-NLE/actions/runs/35100708760), tested
+`60a2c63b86026a9e73193f1a7b31f99905bda61b`: 27/28 jobs passed, including Windows desktop,
+both macOS desktop architectures, every core/media job and all eight MCP jobs. Linux passed
+its document and Qt recovery tests but failed the three playback tests. Inspecting the pinned
+Linux FFmpeg plugin with `ldd` showed direct Qt Quick/QML dependencies omitted by the reduced
+SDK installation. The follow-up installs the matching `qtdeclarative` archive and checks
+plugin dependencies before tests. The full follow-up run remains pending.
+
 ## Local results
 
 | Check | Result | Elapsed |

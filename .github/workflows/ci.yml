@@ -114,9 +114,9 @@ jobs:
         run: |
           python -m pip install aqtinstall==3.3.0
           python -m aqt install-qt ${{ matrix.qt-host }} desktop 6.10.3 ${{ matrix.qt-arch }} --outputdir build-qt --modules qtmultimedia --archives qtbase
-      - name: Install Qt Linux ICU runtime
+      - name: Install Qt Linux runtime dependencies
         if: runner.os == 'Linux'
-        run: python -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 --outputdir build-qt --archives icu
+        run: python -m aqt install-qt linux desktop 6.10.3 linux_gcc_64 --outputdir build-qt --archives icu qtdeclarative
       - name: Locate Qt prefix
         shell: python
         run: |
@@ -127,6 +127,17 @@ jobs:
           prefix = configs[0].resolve().parents[3]
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
               env.write(f'CMAKE_PREFIX_PATH={prefix.as_posix()}\n')
+      - name: Check Linux playback plugin dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          plugin="$CMAKE_PREFIX_PATH/plugins/multimedia/libffmpegmediaplugin.so"
+          test -f "$plugin"
+          dependencies=$(ldd "$plugin")
+          printf '%s\n' "$dependencies"
+          if [[ "$dependencies" == *"not found"* ]]; then
+            exit 1
+          fi
       - name: Record probe backend
         run: ffprobe -version
       - name: Configure desktop and media corpus

@@ -33,6 +33,9 @@ Linux/macOS use the same CMake option and their Qt prefix, then ./build/editor-d
 On Ubuntu, the Qt SDK also needs the OpenGL/EGL and xkbcommon development packages;
 the desktop CI job lists these prerequisites. Installing only the runtime libraries can
 leave Qt's CMake dependency discovery incomplete. See [Qt Linux requirements](https://doc.qt.io/qt-6.10/linux-requirements.html).
+For the pinned Linux SDK, include the `icu` and `qtdeclarative` archives alongside `qtbase`
+and the `qtmultimedia` module. Its FFmpeg playback plugin links Qt Quick/QML even though this
+application uses Widgets. The CI job checks the plugin with `ldd` before running tests.
 Run from the configured build tree or supply the appropriate Qt runtime environment.
 Packaging installers and macOS application bundles are deferred.
 
