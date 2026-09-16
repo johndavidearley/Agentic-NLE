@@ -55,7 +55,7 @@ class Transport : public QObject {
     RationalTime position_, gap_anchor_;
     QString worker_, ffprobe_, status_ = "Open a project or import media";
     bool audible_, playing_ = false, loading_ = false, pending_ = false, retiring_ = false;
-    int load_timeout_ = 10000;
+    int load_timeout_ = 20000;
     std::optional<std::size_t> segment_;
     QLocalServer server_;
     QPointer<QLocalSocket> socket_;

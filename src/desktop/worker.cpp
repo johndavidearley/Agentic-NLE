@@ -20,8 +20,9 @@ int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
     const auto args = app.arguments();
     // server, file, requested/end ms, autoplay, audible, poster-seek ms,
-    // expected poster PTS in source microseconds (-1 means blank), player clock offset us.
-    if (args.size() != 10)
+    // expected poster PTS in source microseconds (-1 means blank), player clock offset us,
+    // load timeout in ms.
+    if (args.size() != 11)
         return 2;
     bool valid = true;
     const auto number = [&](int index) {
@@ -31,10 +32,11 @@ int main(int argc, char **argv) {
         return value;
     };
     const auto start = number(3), end = number(4), seek = number(7), expected = number(8),
-               shift = number(9);
+               shift = number(9), load_timeout = number(10);
     if (!valid || start < 0 || end <= start || end > 86400000 || seek < 0 || seek > 86400001 ||
         expected < -1 || expected > 86400000000LL || shift < -86400000000LL ||
-        shift > 86400000000LL || !QFileInfo(args[2]).isFile())
+        shift > 86400000000LL || load_timeout < 0 || load_timeout > 86400000 ||
+        !QFileInfo(args[2]).isFile())
         return 2;
     QLocalSocket socket;
     socket.setReadBufferSize(4096);
@@ -111,6 +113,10 @@ int main(int argc, char **argv) {
             return;
         QJsonObject message{{"type", "video"}, {"pts_us", pts}, {"end_us", finish}};
         if (!image_clock.isValid() || image_clock.elapsed() >= 30 || !playing) {
+            if (playing && socket.bytesToWrite() >= 2 * 1024 * 1024) {
+                send(message);
+                return;
+            }
             const auto image = frame.toImage().scaled(QSize(960, 540), Qt::KeepAspectRatio,
                                                       Qt::FastTransformation);
             if (image.isNull()) {
@@ -187,7 +193,8 @@ int main(int argc, char **argv) {
     });
     clock.start();
     socket.connectToServer(args[1]);
-    QTimer::singleShot(10000, &app, [&] {
+    const auto load_timeout_ms = static_cast<int>(load_timeout);
+    QTimer::singleShot(load_timeout_ms, &app, [&] {
         if (!ready) {
             fail("Cannot retrieve the indexed frame before the preview deadline.");
             app.exit(5);
