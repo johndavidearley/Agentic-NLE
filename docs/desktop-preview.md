@@ -101,8 +101,10 @@ and a 512 MiB output cap. It is removed when the cached source is replaced or th
 is destroyed. This does not alter the original file or persisted project locators.
 
 Worker loading uses a 20-second transport deadline, and the worker enforces the same readiness watchdog value; active playback without progress stops after five
-seconds. Transfer is capped at 4 MiB queued/buffered data and 1 MiB per encoded preview image.
-Frames are resized to at most 960x540 and image transfers limited to roughly 30 fps; this is
+seconds. During playback, preview images are suppressed once queued socket bytes reach 2 MiB
+to preserve timing telemetry, while transfer remains capped at 4 MiB queued/buffered data and
+1 MiB per encoded preview image. Frames are resized to at most 960x540 and image transfers
+limited to roughly 30 fps; this is
 an inspection preview, not a lossless render path. The backend is fixed to FFmpeg with local
 file protocols and software decoding for the validated baseline.
 
