@@ -193,7 +193,8 @@ int main(int argc, char **argv) {
     });
     clock.start();
     socket.connectToServer(args[1]);
-    QTimer::singleShot(static_cast<int>(load_timeout), &app, [&] {
+    const auto load_timeout_ms = static_cast<int>(load_timeout);
+    QTimer::singleShot(load_timeout_ms, &app, [&] {
         if (!ready) {
             fail("Cannot retrieve the indexed frame before the preview deadline.");
             app.exit(5);
