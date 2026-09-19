@@ -1,10 +1,10 @@
-# Native project format, version 5
+# Native project format, version 4
 
-The writer emits version 5. The reader accepts versions 1–5. Historical grammars remain
+The writer emits version 4. The reader accepts versions 1–4. Historical grammars remain
 in [version 1](native-format-v1.md), [version 2](native-format-v2.md) and
-[version 3](native-format-v3.md) and [version 4](native-format-v4.md). Unknown versions reject.
+[version 3](native-format-v3.md). Unknown versions reject.
 
-Version 4 retained version 3 and adds a CLOCK record after each present source's METADATA
+Version 4 retains version 3 and adds a CLOCK record after each present source's METADATA
 record, plus an estimated duration pair at the end of every STREAM record:
 
 ~~~text
@@ -19,29 +19,6 @@ CLOCK mode is legacy-per-stream=0 or shared-origin=1. The optional signed pair a
 when container_start_known is 1. Stream start ticks are signed; durations, clip positions,
 source ranges and other time pairs remain nonnegative exact rational seconds. Zero estimate
 means unavailable. Flags, enums, rational arithmetic and existing record limits are validated.
-
-## Version 5 playback settings
-
-The existing sequence frame-duration pair remains authoritative and is never replaced during migration.
-Immediately after each SEQUENCE header, write `OUTPUT width height sample_rate channels`.
-Immediately after each TRACK header, write `PLAYBACK enabled muted gain_milli`.
-Immediately after each CLIP record, write `ROUTING video_mode video_index audio_mode audio_index`.
-
-Output defaults are 1920x1080 square pixels and 48000 Hz stereo. Dimensions must be even,
-2..3840 by 2..2160. The current audio output is fixed at 48000 Hz / two channels. Track flags
-are 0/1; gain is integer linear amplitude in thousandths, 0..4000 (1000 is unity).
-Enabled=false suppresses video and audio; muted=true suppresses only audio. The first
-active video track in stored order is topmost. Hidden video clips retain their audio.
-
-Routing modes are automatic=0, disabled=1, explicit-stream=2. Index must be zero except in
-explicit mode, which requires probed metadata with that stream index and the requested kind.
-An audio track never contributes video. Automatic selects the first stored matching stream;
-video tracks keep embedded audio unless disabled. No separate audio clip is created implicitly.
-Split copies routing to both clips; invalid moves/relinks reject atomically.
-
-Versions 1–4 receive these defaults without changing IDs, clip coordinates, frame rate,
-revisions, audit or source clock mode. Track and clip settings are undoable commands, including
-MCP batch edits. Unknown modes, noncanonical flags and invalid output/gain values reject.
 
 ## Shared source clock
 
@@ -67,7 +44,7 @@ Versions 1/2 load with absent metadata. Version 3 metadata receives legacy-per-s
 no container-origin observation, and unavailable per-stream estimates. Its old minimum-span
 rule is retained. Object IDs, allocation watermark, clip coordinates, project revisions and
 audit records remain unchanged. No source is decoded or clock convention silently changed
-during load. Saving writes version 5. There is no downgrade writer.
+during load. Saving writes version 4. There is no downgrade writer.
 
 Verified relink preserves an existing asset's clock mode and source coordinates. A replacement
 for a shared-origin asset must establish a shared clock. A legacy asset stays legacy even
@@ -89,5 +66,4 @@ not a content hash. Unverified original-locator edits clear metadata as before.
 
 Validation and serialization finish before atomic replacement. Undo stacks and transactions
 remain session-local. Attribution is descriptive, not an authenticated replay journal.
-Cooperative document ownership and recovery are described in [project recovery](project-recovery.md).
-Power-loss durability is not claimed.
+Independent-writer conflicts, crash recovery and power-loss durability remain deferred.

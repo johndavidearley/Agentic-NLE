@@ -62,6 +62,46 @@ Json operation(const OperationRecord &value) {
             {"label", value.label},
             {"actions", value.actions}};
 }
+namespace {
+std::uint32_t setting(const Json &value) {
+    if (!value.is_number_integer() || value < 0 ||
+        value > std::numeric_limits<std::uint32_t>::max())
+        throw Failure("invalid_arguments", "Setting must be an unsigned 32-bit integer.");
+    return value.get<std::uint32_t>();
+}
+bool flag(const Json &value) {
+    if (!value.is_boolean())
+        throw Failure("invalid_arguments", "Expected a boolean.");
+    return value.get<bool>();
+}
+Json selection(const StreamSelection &value) {
+    Json result{{"mode", value.mode == StreamMode::Automatic  ? "auto"
+                         : value.mode == StreamMode::Disabled ? "disabled"
+                                                              : "stream"}};
+    if (value.mode == StreamMode::Explicit)
+        result["index"] = value.index;
+    return result;
+}
+StreamSelection selection(const Json &value) {
+    if (!value.is_object() || !value.contains("mode"))
+        throw Failure("invalid_arguments", "Stream selection requires mode.");
+    const auto mode = text(value.at("mode"));
+    if (mode == "stream") {
+        fields(value, {"mode", "index"});
+        return {StreamMode::Explicit, setting(value.at("index"))};
+    }
+    fields(value, {"mode"});
+    if (mode == "auto")
+        return {};
+    if (mode == "disabled")
+        return {StreamMode::Disabled};
+    throw Failure("invalid_arguments", "Unknown stream selection mode.");
+}
+ClipRouting routing(const Json &value) {
+    fields(value, {"video", "audio"});
+    return {selection(value.at("video")), selection(value.at("audio"))};
+}
+} // namespace
 Json snapshot(const ProjectSnapshot &project) {
     Json assets = Json::array(), sequences = Json::array();
     for (const auto &asset : project.media) {
@@ -133,17 +173,29 @@ Json snapshot(const ProjectSnapshot &project) {
                                  {"media_id", std::to_string(clip.media.value)},
                                  {"position", time(clip.position)},
                                  {"source_in", time(clip.source.start)},
-                                 {"duration", time(clip.source.duration)}});
+                                 {"duration", time(clip.source.duration)},
+                                 {"routing",
+                                  {{"video", selection(clip.routing.video)},
+                                   {"audio", selection(clip.routing.audio)}}}});
             tracks.push_back({{"kind", "track"},
                               {"id", std::to_string(track.id.value)},
                               {"track_kind", track.kind == TrackKind::Video ? "video" : "audio"},
                               {"name", track.name},
+                              {"playback",
+                               {{"enabled", track.playback.enabled},
+                                {"muted", track.playback.muted},
+                                {"gain_milli", track.playback.gain_milli}}},
                               {"clips", clips}});
         }
         sequences.push_back({{"kind", "sequence"},
                              {"id", std::to_string(sequence.id.value)},
                              {"name", sequence.name},
                              {"frame_duration", time(sequence.frame_duration)},
+                             {"output",
+                              {{"width", sequence.output.width},
+                               {"height", sequence.output.height},
+                               {"sample_rate", sequence.output.sample_rate},
+                               {"channels", sequence.output.channels}}},
                              {"tracks", tracks}});
     }
     return {{"kind", "project"},    {"id", std::to_string(project.id.value)},
@@ -210,11 +262,34 @@ Command command(const Json &value, const Aliases &aliases) {
                            text(value.at("name"))};
     }
     if (op == "insert_clip") {
-        fields(value, {"op", "track_id", "media_id", "position", "source_in", "duration"}, {"as"});
+        fields(value, {"op", "track_id", "media_id", "position", "source_in", "duration"},
+               {"as", "routing"});
         return InsertClip{id<TrackId>(value.at("track_id"), aliases),
                           id<MediaId>(value.at("media_id"), aliases),
                           time(value.at("position")),
-                          {time(value.at("source_in")), time(value.at("duration"))}};
+                          {time(value.at("source_in")), time(value.at("duration"))},
+                          value.contains("routing") ? routing(value.at("routing")) : ClipRouting{}};
+    }
+    if (op == "set_sequence_output") {
+        fields(value, {"op", "sequence_id", "frame_duration", "output"});
+        const auto &output = value.at("output");
+        fields(output, {"width", "height", "sample_rate", "channels"});
+        return SetSequenceOutput{id<SequenceId>(value.at("sequence_id"), aliases),
+                                 time(value.at("frame_duration")),
+                                 {setting(output.at("width")), setting(output.at("height")),
+                                  setting(output.at("sample_rate")),
+                                  setting(output.at("channels"))}};
+    }
+    if (op == "set_track_playback") {
+        fields(value, {"op", "track_id", "enabled", "muted", "gain_milli"});
+        return SetTrackPlayback{
+            id<TrackId>(value.at("track_id"), aliases),
+            {flag(value.at("enabled")), flag(value.at("muted")), setting(value.at("gain_milli"))}};
+    }
+    if (op == "set_clip_routing") {
+        fields(value, {"op", "clip_id", "routing"});
+        return SetClipRouting{id<ClipId>(value.at("clip_id"), aliases),
+                              routing(value.at("routing"))};
     }
     if (op == "move_clip") {
         fields(value, {"op", "clip_id", "track_id", "position"});

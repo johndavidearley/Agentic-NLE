@@ -48,7 +48,7 @@ END
         CHECK(old.media[0].duration == RationalTime{4});
         CHECK(old.sequences[0].tracks[0].clips[0].source.start == RationalTime{});
         const auto migrated = serialize(old);
-        CHECK(migrated.starts_with("NLE_PROJECT 4"));
+        CHECK(migrated.starts_with("NLE_PROJECT 5"));
         CHECK(deserialize(migrated) == old);
         auto shared = *old.media[0].source;
         shared.time_mode = SourceTimeMode::SharedOrigin;

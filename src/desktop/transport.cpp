@@ -1,6 +1,7 @@
 #include "desktop/transport.hpp"
 #include "media/probe.hpp"
 #include <QCoreApplication>
+#include <QDir>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QProcessEnvironment>
@@ -75,6 +76,8 @@ void Transport::retire() {
     }
 }
 void Transport::cancel() {
+    if (sequence_transport_)
+        sequence_transport_->cancel();
     if (index_stop_)
         index_stop_->store(true);
     pending_ = false;
@@ -86,8 +89,27 @@ void Transport::cancel() {
     emit frameReady({}, -1, -1);
     emit changed();
 }
+void Transport::open(ProjectSnapshot project, SequenceId sequence) {
+    cancel();
+    if (!sequence_transport_) {
+        auto worker = QFileInfo(worker_).dir().filePath("nle-sequence-worker");
+#ifdef _WIN32
+        worker += ".exe";
+#endif
+        sequence_transport_ = std::make_unique<SequenceTransport>(worker, audible_, this);
+        sequence_transport_->setLoadTimeout(load_timeout_);
+        connect(sequence_transport_.get(), &SequenceTransport::changed, this, &Transport::changed);
+        connect(sequence_transport_.get(), &SequenceTransport::frameReady, this,
+                &Transport::frameReady);
+        connect(sequence_transport_.get(), &SequenceTransport::observation, this,
+                &Transport::observation);
+    }
+    sequence_mode_ = true;
+    sequence_transport_->open(std::move(project), sequence);
+}
 void Transport::open(playback::Plan plan) {
     cancel();
+    sequence_mode_ = false;
     plan_ = std::move(plan);
     position_ = {};
     status_ = plan_.segments.empty() ? "Empty timeline" : "Ready";
@@ -97,6 +119,10 @@ void Transport::open(playback::Plan plan) {
         emit changed();
 }
 void Transport::seek(RationalTime position) {
+    if (sequence_mode_) {
+        sequence_transport_->seek(position);
+        return;
+    }
     if (index_stop_ && indexing_)
         index_stop_->store(true);
     (void)plan_.sample(position);
@@ -111,6 +137,10 @@ void Transport::seek(RationalTime position) {
     emit changed();
 }
 void Transport::play() {
+    if (sequence_mode_) {
+        sequence_transport_->play();
+        return;
+    }
     if (plan_.segments.empty())
         return;
     playing_ = true;
@@ -129,6 +159,10 @@ void Transport::play() {
     emit changed();
 }
 void Transport::pause() {
+    if (sequence_mode_) {
+        sequence_transport_->pause();
+        return;
+    }
     tick();
     playing_ = false;
     gap_clock_.invalidate();
@@ -145,6 +179,10 @@ void Transport::setProbeTool(QString path) {
     cache_.reset();
 }
 void Transport::step(int direction) {
+    if (sequence_mode_) {
+        sequence_transport_->step(direction);
+        return;
+    }
     if (loading_ || !cache_)
         return;
     auto sample = plan_.sample(position_);
@@ -459,6 +497,8 @@ void Transport::receive() {
     }
 }
 void Transport::tick() {
+    if (sequence_mode_)
+        return;
     if (loading_ && process_ && !retiring_ && deadline_.isValid() &&
         deadline_.elapsed() > load_timeout_) {
         fail("Preview loading timed out; the worker was cancelled.");

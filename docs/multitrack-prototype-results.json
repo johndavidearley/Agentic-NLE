@@ -1,0 +1,98 @@
+{
+  "m8-native-prototype": {
+    "audio_max_sample_error": 0,
+    "backend": "direct-ffmpeg-prototype",
+    "black_frame_errors": 0,
+    "cancel_ms": 5.3658,
+    "clock_drift_ms": 11.09029999999766,
+    "clock_lateness_p99_ms": 15.578600000000733,
+    "cut_seek_p95_ms": 0.9914,
+    "duration_seconds": 60,
+    "ffmpeg": "7.1.3",
+    "initial_ready_ms": 292.8133,
+    "late_video_frames": 0,
+    "late_video_percent": 0,
+    "max_pts_error_us": 1,
+    "passed_in_process_targets": true,
+    "peak_decoded_queue_bytes": 15676672,
+    "seek_p95_ms": 105.729,
+    "underruns": 0,
+    "video_frames": 1796,
+    "peak_process_tree_rss_bytes": 86065152,
+    "elapsed_wall_seconds": 65.26600000000326,
+    "rss_sampling_interval_ms": 25,
+    "passed_prototype_targets": true
+  },
+  "m8-qt-prototype": {
+    "backend": "existing-six-qt-workers",
+    "cancel_ms": 30.3499,
+    "duration_seconds": 60,
+    "initial_ready_ms": 2259.3293,
+    "joint_sample_mixer": false,
+    "loading_observations": 1876,
+    "max_track_clock_spread_ms": 880,
+    "note": "Existing worker protocol exports audio timing only; independent players do not expose a shared sample clock or PCM mixer.",
+    "seek_p95_ms": 345.9543,
+    "peak_process_tree_rss_bytes": 446935040,
+    "elapsed_wall_seconds": 66.48399999999674,
+    "rss_sampling_interval_ms": 25
+  },
+  "m8-native-formats": {
+    "audio_origin_checks": 2,
+    "backend": "direct-ffmpeg-format-checks",
+    "passed": true,
+    "video": [
+      {
+        "file": "vfr.mkv",
+        "max_pts_error_us": 0
+      },
+      {
+        "file": "bframes.mp4",
+        "max_pts_error_us": 1
+      },
+      {
+        "file": "offset-common.mkv",
+        "max_pts_error_us": 0
+      },
+      {
+        "file": "offset-audio.mkv",
+        "max_pts_error_us": 0
+      },
+      {
+        "file": "offset-video.mkv",
+        "max_pts_error_us": 0
+      },
+      {
+        "file": "negative-origin.mkv",
+        "max_pts_error_us": 0
+      }
+    ],
+    "peak_process_tree_rss_bytes": 46104576,
+    "elapsed_wall_seconds": 1.0,
+    "rss_sampling_interval_ms": 25
+  },
+  "m8-native-ten-minute": {
+    "audio_max_sample_error": 0,
+    "backend": "direct-ffmpeg-prototype",
+    "black_frame_errors": 0,
+    "cancel_ms": 4.6872,
+    "clock_drift_ms": 7.278799999943562,
+    "clock_lateness_p99_ms": 15.405299999998533,
+    "cut_seek_p95_ms": 4.7318,
+    "duration_seconds": 600,
+    "ffmpeg": "7.1.3",
+    "initial_ready_ms": 222.4468,
+    "late_video_frames": 0,
+    "late_video_percent": 0,
+    "max_pts_error_us": 1,
+    "passed_in_process_targets": true,
+    "peak_decoded_queue_bytes": 15676672,
+    "seek_p95_ms": 82.1141,
+    "underruns": 0,
+    "video_frames": 17950,
+    "peak_process_tree_rss_bytes": 85196800,
+    "elapsed_wall_seconds": 604.0,
+    "rss_sampling_interval_ms": 25,
+    "passed_prototype_targets": true
+  }
+}

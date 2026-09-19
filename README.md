@@ -5,9 +5,13 @@ A professional open-source video editor designed for human editors and software 
 Desktop, CLI and MCP share protected saves; desktop drafts and opt-in MCP checkpoints
 can recover interrupted work. [Validation](docs/recovery-evaluation.md) records all 28 passing
 CI jobs on Windows, Linux and both macOS architectures.
+Milestone 8 multi-track playback passes Windows local acceptance, including its ten-minute
+production test. [Results and limits](docs/multitrack-evaluation.md) are recorded; new
+Windows/Linux/macOS CI validation remains pending.
 An optional Qt desktop imports media, previews a sequence, and provides command-based
-trim, position, split, delete and undo/redo controls. Paused seeks and frame stepping use a
-decoded-frame index, and shared source clocks preserve stream offsets. The headless CLI remains available.
+trim, position, split, delete and undo/redo controls, plus deliberate track placement, gain,
+mute and stream routing. Exact paused seeks and shared source clocks preserve frame selection
+and stream offsets; stepping follows the sequence output grid. The headless CLI remains available.
 An optional local MCP server gives agents detached previews, grouped commits, undo/redo and
 explicit saves through the same engine. There is no export pipeline yet.
 
@@ -67,11 +71,11 @@ See [desktop setup and use](docs/desktop-preview.md) for the optional Qt 6.8+ bu
 .\tools\run-desktop.ps1
 ~~~
 
-Preview supports one populated track with embedded audio, cuts, gaps, play/pause and seek.
-It reports offline, changed and unsupported sources. Known shared source origins, including
-verified negative-origin sources, preserve relative A/V timing. Independent track mixing and
-seamless cuts remain deferred. [Precision evaluation](docs/precision-evaluation.md) records
-frame selection, stepping, cancellation and decoder-delivery timing limits.
+Preview supports two video and four audio tracks, embedded audio, hard cuts, gaps, play/pause
+and seek. Track order selects the visible video; enabled audio mixes independently with explicit
+routing, mute and gain. It reports offline, changed and unsupported sources. Shared source
+origins, including negative origins, preserve relative A/V timing. See the
+[playback contract](docs/desktop-preview.md) for supported inputs and timing limits.
 Desktop CI is configured for Windows, Linux, and macOS on Apple Silicon and Intel;
 local desktop validation is Windows only.
 
@@ -152,7 +156,7 @@ See [performance and validation](docs/performance.md) for measured budgets and r
 History defaults to 100 entries/64 MiB of accounted payload, not an RSS ceiling.
 Transactions allow 1,024 staged commands; attribution caps at 10,000 operations.
 Oversized edits and full audit logs reject changes explicitly. Native files remain
-limited to 16 MiB/100,000 nested records; versions 1–3 migrate to version 4 on save without changing old clip timing.
+limited to 16 MiB/100,000 nested records; versions 1–4 migrate to version 5 on save without changing old clip timing.
 Open transactions and undo history are not persisted.
 
 Concurrent desktop/MCP editing, crash-safe retry recovery, authenticated remote attribution,

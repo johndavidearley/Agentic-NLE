@@ -57,6 +57,18 @@ CommandResult apply(ProjectSnapshot &candidate, const Command &command) {
                 candidate.sequences.push_back({id, c.name, c.frame_duration, {}});
                 result.sequence = id;
             },
+            [&](const SetSequenceOutput &c) {
+                auto &sequence = find_sequence(candidate, c.sequence);
+                sequence.frame_duration = c.frame_duration;
+                sequence.output = c.output;
+            },
+            [&](const SetTrackPlayback &c) {
+                find_track(candidate, c.track).playback = c.playback;
+            },
+            [&](const SetClipRouting &c) {
+                auto [track, index] = find_clip(candidate, c.clip);
+                track->clips[index].routing = c.routing;
+            },
             [&](const CreateTrack &c) {
                 auto &sequence = find_sequence(candidate, c.sequence);
                 const auto id = allocate<TrackId>(candidate);
@@ -71,7 +83,7 @@ CommandResult apply(ProjectSnapshot &candidate, const Command &command) {
             [&](const InsertClip &c) {
                 auto &track = find_track(candidate, c.track);
                 const auto id = allocate<ClipId>(candidate);
-                track.clips.push_back({id, c.media, c.position, c.source});
+                track.clips.push_back({id, c.media, c.position, c.source, c.routing});
                 result.clip = id;
             },
             [&](const MoveClip &c) {
@@ -98,7 +110,8 @@ CommandResult apply(ProjectSnapshot &candidate, const Command &command) {
                 Clip right{right_id,
                            left.media,
                            c.position,
-                           {left.source.start + offset, left.source.duration - offset}};
+                           {left.source.start + offset, left.source.duration - offset},
+                           left.routing};
                 left.source.duration = offset;
                 track->clips.push_back(right);
                 result.clip = right_id;
@@ -196,55 +209,69 @@ std::string describe(const Command &command, const CommandResult &result) {
     std::ostringstream out;
     out.imbue(std::locale::classic());
     const auto time = [&](RationalTime t) { out << t.value() << '/' << t.rate(); };
-    std::visit(Visitor{[&](const CreateSequence &) {
-                           out << "CreateSequence sequence=" << result.sequence->value;
-                       },
-                       [&](const CreateTrack &c) {
-                           out << "CreateTrack sequence=" << c.sequence.value
-                               << " track=" << result.track->value;
-                       },
-                       [&](const RegisterMedia &) {
-                           out << "RegisterMedia media=" << result.media->value;
-                       },
-                       [&](const InsertClip &c) {
-                           out << "InsertClip clip=" << result.clip->value
-                               << " media=" << c.media.value << " track=" << c.track.value
-                               << " position=";
-                           time(c.position);
-                       },
-                       [&](const MoveClip &c) {
-                           out << "MoveClip clip=" << c.clip.value << " track=" << c.track.value
-                               << " position=";
-                           time(c.position);
-                       },
-                       [&](const TrimClip &c) {
-                           out << "TrimClip clip=" << c.clip.value << " position=";
-                           time(c.position);
-                           out << " source=";
-                           time(c.source.start);
-                           out << " duration=";
-                           time(c.source.duration);
-                       },
-                       [&](const SplitClip &c) {
-                           out << "SplitClip clip=" << c.clip.value
-                               << " right=" << result.clip->value << " position=";
-                           time(c.position);
-                       },
-                       [&](const DeleteClip &c) { out << "DeleteClip clip=" << c.clip.value; },
-                       [&](const DeleteTrack &c) { out << "DeleteTrack track=" << c.track.value; },
-                       [&](const ReorderTrack &c) {
-                           out << "ReorderTrack sequence=" << c.sequence.value
-                               << " track=" << c.track.value << " index=" << c.index;
-                       },
-                       [&](const ReplaceMediaSource &c) {
-                           out << "ReplaceMediaSource media=" << c.media.value;
-                       },
-                       [&](const RelinkMedia &c) {
-                           out << "RelinkMedia media=" << c.media.value
-                               << " role=" << static_cast<int>(c.role)
-                               << (c.uri ? " set" : " remove");
-                       }},
-               command);
+    std::visit(
+        Visitor{
+            [&](const CreateSequence &) {
+                out << "CreateSequence sequence=" << result.sequence->value;
+            },
+            [&](const CreateTrack &c) {
+                out << "CreateTrack sequence=" << c.sequence.value
+                    << " track=" << result.track->value;
+            },
+            [&](const SetSequenceOutput &c) {
+                out << "SetSequenceOutput sequence=" << c.sequence.value
+                    << " size=" << c.output.width << 'x' << c.output.height << " frame_duration=";
+                time(c.frame_duration);
+            },
+            [&](const SetTrackPlayback &c) {
+                out << "SetTrackPlayback track=" << c.track.value
+                    << " enabled=" << c.playback.enabled << " muted=" << c.playback.muted
+                    << " gain_milli=" << c.playback.gain_milli;
+            },
+            [&](const SetClipRouting &c) {
+                out << "SetClipRouting clip=" << c.clip.value
+                    << " video=" << static_cast<int>(c.routing.video.mode) << ':'
+                    << c.routing.video.index << " audio=" << static_cast<int>(c.routing.audio.mode)
+                    << ':' << c.routing.audio.index;
+            },
+            [&](const RegisterMedia &) { out << "RegisterMedia media=" << result.media->value; },
+            [&](const InsertClip &c) {
+                out << "InsertClip clip=" << result.clip->value << " media=" << c.media.value
+                    << " track=" << c.track.value << " position=";
+                time(c.position);
+            },
+            [&](const MoveClip &c) {
+                out << "MoveClip clip=" << c.clip.value << " track=" << c.track.value
+                    << " position=";
+                time(c.position);
+            },
+            [&](const TrimClip &c) {
+                out << "TrimClip clip=" << c.clip.value << " position=";
+                time(c.position);
+                out << " source=";
+                time(c.source.start);
+                out << " duration=";
+                time(c.source.duration);
+            },
+            [&](const SplitClip &c) {
+                out << "SplitClip clip=" << c.clip.value << " right=" << result.clip->value
+                    << " position=";
+                time(c.position);
+            },
+            [&](const DeleteClip &c) { out << "DeleteClip clip=" << c.clip.value; },
+            [&](const DeleteTrack &c) { out << "DeleteTrack track=" << c.track.value; },
+            [&](const ReorderTrack &c) {
+                out << "ReorderTrack sequence=" << c.sequence.value << " track=" << c.track.value
+                    << " index=" << c.index;
+            },
+            [&](const ReplaceMediaSource &c) {
+                out << "ReplaceMediaSource media=" << c.media.value;
+            },
+            [&](const RelinkMedia &c) {
+                out << "RelinkMedia media=" << c.media.value << " role=" << static_cast<int>(c.role)
+                    << (c.uri ? " set" : " remove");
+            }},
+        command);
     return out.str();
 }
 ProjectSnapshot content_only(const ProjectSnapshot &source) {

@@ -63,6 +63,8 @@ class Window : public QMainWindow {
     void closeEvent(QCloseEvent *event) override;
 
   private:
+    void placeSelected();
+    void playbackSettings();
     void refresh();
     void refreshInspector();
     void selectClip(ClipId id);

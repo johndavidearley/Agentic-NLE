@@ -275,6 +275,9 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
     auto *append = button("Append to timeline", "appendButton");
     leftLayout->addWidget(append);
     connect(append, &QPushButton::clicked, this, &Window::appendSelected);
+    auto *place = button("Place on track...", "placeButton");
+    leftLayout->addWidget(place);
+    connect(place, &QPushButton::clicked, this, &Window::placeSelected);
     splitter->addWidget(left);
     auto *center = new QWidget;
     auto *centerLayout = new QVBoxLayout(center);
@@ -353,6 +356,9 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
         if (selected_.value)
             edit(DeleteClip{selected_}, "Delete clip");
     });
+    auto *settings = button("Track / routing...", "playbackSettingsButton");
+    form->addRow(settings);
+    connect(settings, &QPushButton::clicked, this, &Window::playbackSettings);
     splitter->addWidget(right);
     splitter->setSizes({240, 760, 280});
     auto *timelineHeading = new QHBoxLayout;
@@ -530,9 +536,13 @@ void Window::refresh() {
     refreshInspector();
     timeline_->display(project, sequence_, selected_);
     try {
-        auto plan = sequence_.value ? playback::make_plan(project, sequence_) : playback::Plan{};
+        auto plan = sequence_.value ? playback::make_sequence_plan(project, sequence_)
+                                    : playback::SequencePlan{};
         scrub_->setRange(0, static_cast<int>(playback::milliseconds(plan.duration)));
-        transport_.open(std::move(plan));
+        if (sequence_.value)
+            transport_.open(project, sequence_);
+        else
+            transport_.open(playback::Plan{});
         if (previous > RationalTime{})
             transport_.seek(std::min(previous, transport_.duration()));
     } catch (const std::exception &e) {

@@ -1,4 +1,5 @@
 #pragma once
+#include "desktop/sequence_transport.hpp"
 #include "media/frame_index.hpp"
 #include "playback/plan.hpp"
 #include <QElapsedTimer>
@@ -26,19 +27,31 @@ class Transport : public QObject {
                        QString ffprobe = "ffprobe");
     ~Transport() override;
     void open(playback::Plan plan);
+    void open(ProjectSnapshot project, SequenceId sequence);
     void seek(RationalTime position);
     void play();
     void pause();
     void step(int direction);
     void setProbeTool(QString path);
     void cancel();
-    RationalTime position() const { return position_; }
-    RationalTime duration() const { return plan_.duration; }
-    bool playing() const { return playing_; }
-    bool loading() const { return loading_; }
-    QString status() const { return status_; }
-    bool idle() const { return process_ == nullptr && !indexing_; }
-    void setLoadTimeout(int milliseconds) { load_timeout_ = milliseconds; }
+    RationalTime position() const {
+        return sequence_mode_ ? sequence_transport_->position() : position_;
+    }
+    RationalTime duration() const {
+        return sequence_mode_ ? sequence_transport_->duration() : plan_.duration;
+    }
+    bool playing() const { return sequence_mode_ ? sequence_transport_->playing() : playing_; }
+    bool loading() const { return sequence_mode_ ? sequence_transport_->loading() : loading_; }
+    QString status() const { return sequence_mode_ ? sequence_transport_->status() : status_; }
+    bool idle() const {
+        return process_ == nullptr && !indexing_ &&
+               (!sequence_transport_ || sequence_transport_->idle());
+    }
+    void setLoadTimeout(int milliseconds) {
+        load_timeout_ = milliseconds;
+        if (sequence_transport_)
+            sequence_transport_->setLoadTimeout(milliseconds);
+    }
   signals:
     void changed();
     void frameReady(const QImage &image, qint64 sourcePts, qint64 sourceEnd);
@@ -51,6 +64,8 @@ class Transport : public QObject {
     void receive();
     void fail(const QString &message);
     void tick();
+    std::unique_ptr<SequenceTransport> sequence_transport_;
+    bool sequence_mode_ = false;
     playback::Plan plan_;
     RationalTime position_, gap_anchor_;
     QString worker_, ffprobe_, status_ = "Open a project or import media";

@@ -3,8 +3,12 @@
 #include "project/persistence.hpp"
 #include "qt_font.hpp"
 #include <QApplication>
+#include <QCheckBox>
+#include <QDialog>
 #include <QElapsedTimer>
+#include <QSpinBox>
 #include <QThread>
+#include <QTimer>
 #include <iostream>
 using namespace nle;
 using namespace nle::desktop;
@@ -81,6 +85,32 @@ int main(int argc, char **argv) {
         CHECK(window.snapshot() == beforeStepping);
         window.findChild<Timeline *>()->selected(
             window.snapshot().sequences[0].tracks[0].clips.front().id);
+        const auto beforePlacement = window.snapshot();
+        QTimer::singleShot(0, &window, [&] {
+            auto *dialog = window.findChild<QDialog *>("placeDialog");
+            dialog->findChild<QLineEdit *>("placementPosition")->setText("0");
+            dialog->findChild<QLineEdit *>("placementDuration")->setText("1/2");
+            dialog->accept();
+        });
+        window.findChild<QPushButton *>("placeButton")->click();
+        CHECK(window.snapshot().sequences[0].tracks.size() == 2);
+        CHECK(window.snapshot().sequences[0].tracks[0].clips.size() == 1);
+        CHECK(window.snapshot().revision == beforePlacement.revision + 1);
+        CHECK(wait_for([&] { return !window.transport().loading(); }));
+        QTimer::singleShot(0, &window, [&] {
+            auto *dialog = window.findChild<QDialog *>("playbackSettingsDialog");
+            dialog->findChild<QCheckBox *>("trackMuted")->setChecked(true);
+            dialog->findChild<QSpinBox *>("trackGain")->setValue(500);
+            dialog->accept();
+        });
+        window.findChild<QPushButton *>("playbackSettingsButton")->click();
+        CHECK(window.snapshot().sequences[0].tracks[0].playback.muted);
+        CHECK(window.snapshot().sequences[0].tracks[0].playback.gain_milli == 500);
+        window.findChild<QPushButton *>("undoButton")->click();
+        CHECK(!window.snapshot().sequences[0].tracks[0].playback.muted);
+        window.findChild<QPushButton *>("undoButton")->click();
+        CHECK(window.snapshot().sequences == beforePlacement.sequences);
+        window.saveProject(args[4]);
         QCoreApplication::processEvents();
         CHECK(window.grab().save(args[5]));
         window.transport().cancel();

@@ -119,6 +119,38 @@ void validate_source(const SourceMetadata &source) {
     }
     (void)source_duration(source);
 }
+void validate_output(const SequenceOutput &output) {
+    if (output.width < 2 || output.height < 2 || output.width > 3840 || output.height > 2160 ||
+        output.width % 2 != 0 || output.height % 2 != 0 || output.sample_rate != 48000 ||
+        output.channels != 2)
+        throw DomainError(
+            "Output requires even dimensions up to 3840x2160 and 48 kHz stereo audio");
+}
+std::optional<std::uint32_t> select_stream(const MediaAsset &asset, TrackKind kind,
+                                           const StreamSelection &selection) {
+    if (selection.mode == StreamMode::Disabled || !asset.source)
+        return {};
+    for (const auto &stream : asset.source->streams)
+        if (stream.kind == kind &&
+            (selection.mode == StreamMode::Automatic || stream.index == selection.index))
+            return stream.index;
+    return {};
+}
+void validate_routing(const ClipRouting &routing, const MediaAsset &asset, TrackKind track) {
+    for (const auto kind : {TrackKind::Video, TrackKind::Audio}) {
+        const auto &selection = kind == TrackKind::Video ? routing.video : routing.audio;
+        if (selection.mode != StreamMode::Automatic && selection.mode != StreamMode::Disabled &&
+            selection.mode != StreamMode::Explicit)
+            throw DomainError("Unknown stream routing mode");
+        if (selection.mode != StreamMode::Explicit && selection.index != 0)
+            throw DomainError("Only explicit stream routing accepts an index");
+        if (selection.mode == StreamMode::Explicit &&
+            (!select_stream(asset, kind, selection) ||
+             (kind == TrackKind::Video && track != TrackKind::Video)))
+            throw DomainError(
+                "Explicit stream routing requires a matching source stream and track kind");
+    }
+}
 void validate(const ProjectSnapshot &project) {
     if (project.id.value == 0 || project.next_id == 0)
         throw DomainError("invalid project identity or allocation watermark");
@@ -184,11 +216,14 @@ void validate(const ProjectSnapshot &project) {
     for (const auto &sequence : project.sequences) {
         check_id(sequence.id.value);
         validate_text(sequence.name);
+        validate_output(sequence.output);
         if (sequence.frame_duration == RationalTime{})
             throw DomainError("frame duration must be positive");
         for (const auto &track : sequence.tracks) {
             check_id(track.id.value);
             validate_text(track.name);
+            if (track.playback.gain_milli > 4000)
+                throw DomainError("Track gain must be between 0 and 4000 thousandths");
             if (track.kind != TrackKind::Video && track.kind != TrackKind::Audio)
                 throw DomainError("invalid track kind");
             if (!std::is_sorted(track.clips.begin(), track.clips.end(), clip_less))
@@ -201,6 +236,7 @@ void validate(const ProjectSnapshot &project) {
                     throw DomainError("clip references missing media");
                 if (!supports(asset->second->kind, track.kind))
                     throw DomainError("media does not support track kind");
+                validate_routing(clip.routing, *asset->second, track.kind);
                 if (clip.source.duration == RationalTime{} ||
                     clip.source.end() > asset->second->duration)
                     throw DomainError("invalid clip source range");

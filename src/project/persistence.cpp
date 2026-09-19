@@ -91,7 +91,7 @@ std::string serialize(const ProjectSnapshot &project) {
     validate(project);
     std::ostringstream out;
     out.imbue(std::locale::classic());
-    out << "NLE_PROJECT 4\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
+    out << "NLE_PROJECT 5\nPROJECT " << project.id.value << ' ' << project.next_id << ' '
         << std::quoted(project.name) << "\nMEDIA " << project.media.size() << '\n';
     for (const auto &asset : project.media) {
         out << "ASSET " << asset.id.value << ' ' << static_cast<int>(asset.kind) << ' '
@@ -138,9 +138,13 @@ std::string serialize(const ProjectSnapshot &project) {
         out << "SEQUENCE " << sequence.id.value << ' ' << std::quoted(sequence.name) << ' ';
         write_time(out, sequence.frame_duration);
         out << ' ' << sequence.tracks.size() << '\n';
+        out << "OUTPUT " << sequence.output.width << ' ' << sequence.output.height << ' '
+            << sequence.output.sample_rate << ' ' << sequence.output.channels << '\n';
         for (const auto &track : sequence.tracks) {
             out << "TRACK " << track.id.value << ' ' << static_cast<int>(track.kind) << ' '
                 << std::quoted(track.name) << ' ' << track.clips.size() << '\n';
+            out << "PLAYBACK " << track.playback.enabled << ' ' << track.playback.muted << ' '
+                << track.playback.gain_milli << '\n';
             for (const auto &clip : track.clips) {
                 out << "CLIP " << clip.id.value << ' ' << clip.media.value << ' ';
                 write_time(out, clip.position);
@@ -148,7 +152,9 @@ std::string serialize(const ProjectSnapshot &project) {
                 write_time(out, clip.source.start);
                 out << ' ';
                 write_time(out, clip.source.duration);
-                out << '\n';
+                out << "\nROUTING " << static_cast<int>(clip.routing.video.mode) << ' '
+                    << clip.routing.video.index << ' ' << static_cast<int>(clip.routing.audio.mode)
+                    << ' ' << clip.routing.audio.index << '\n';
             }
         }
     }
@@ -177,7 +183,7 @@ ProjectSnapshot deserialize(std::string_view data) {
     Reader reader(data);
     reader.expect("NLE_PROJECT");
     const auto version = reader.number<unsigned>();
-    if (version != 1 && version != 2 && version != 3 && version != 4)
+    if (version != 1 && version != 2 && version != 3 && version != 4 && version != 5)
         throw DomainError("unsupported project version");
     reader.expect("PROJECT");
     ProjectSnapshot project;
@@ -267,6 +273,11 @@ ProjectSnapshot deserialize(std::string_view data) {
         sequence.name = reader.text();
         sequence.frame_duration = reader.time();
         const auto tracks = reader.count();
+        if (version >= 5) {
+            reader.expect("OUTPUT");
+            sequence.output = {reader.number<std::uint32_t>(), reader.number<std::uint32_t>(),
+                               reader.number<std::uint32_t>(), reader.number<std::uint32_t>()};
+        }
         for (std::uint64_t j = 0; j < tracks; ++j) {
             reader.expect("TRACK");
             Track track;
@@ -274,6 +285,13 @@ ProjectSnapshot deserialize(std::string_view data) {
             track.kind = track_kind(reader.number<std::uint64_t>());
             track.name = reader.text();
             const auto clips = reader.count();
+            if (version >= 5) {
+                reader.expect("PLAYBACK");
+                const auto enabled = reader.number<unsigned>(), muted = reader.number<unsigned>();
+                if (enabled > 1 || muted > 1)
+                    throw DomainError("Invalid track playback flag");
+                track.playback = {enabled != 0, muted != 0, reader.number<std::uint32_t>()};
+            }
             for (std::uint64_t k = 0; k < clips; ++k) {
                 reader.expect("CLIP");
                 Clip clip;
@@ -282,6 +300,17 @@ ProjectSnapshot deserialize(std::string_view data) {
                 clip.position = reader.time();
                 clip.source.start = reader.time();
                 clip.source.duration = reader.time();
+                if (version >= 5) {
+                    reader.expect("ROUTING");
+                    const auto video = reader.number<unsigned>();
+                    const auto video_index = reader.number<std::uint32_t>();
+                    const auto audio = reader.number<unsigned>();
+                    const auto audio_index = reader.number<std::uint32_t>();
+                    if (video > 2 || audio > 2)
+                        throw DomainError("Invalid stream routing mode");
+                    clip.routing = {{static_cast<StreamMode>(video), video_index},
+                                    {static_cast<StreamMode>(audio), audio_index}};
+                }
                 track.clips.push_back(clip);
             }
             sequence.tracks.push_back(std::move(track));

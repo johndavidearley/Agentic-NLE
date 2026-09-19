@@ -55,3 +55,9 @@ subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i",
                 "sine=frequency=440:sample_rate=48000:duration=4", "-c:a", "pcm_s16le",
                 "-output_ts_offset", "-1", "-avoid_negative_ts", "disabled", "-y",
                 str(root / "negative-audio.mkv")], check=True)
+
+# Independent stereo PCM oracle for the offset/negative-origin fixtures above.
+subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i",
+                "sine=frequency=440:sample_rate=48000:duration=4",
+                "-ac", "2", "-c:a", "pcm_f32le", "-f", "f32le", "-y",
+                str(root / "origin-reference.f32")], check=True)

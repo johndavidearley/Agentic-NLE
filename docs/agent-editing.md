@@ -145,3 +145,14 @@ cannot interrupt an atomic core edit. No asynchronous jobs or background media a
 
 See [MCP boundary](mcp-boundary.md), [ADR 0012](adr/0012-local-mcp-adapter.md), and
 [MCP validation](mcp-evaluation.md) for the implementation contract and executed checks.
+
+## Milestone 8 settings
+
+`set_sequence_output` accepts sequence_id, exact frame_duration, and output with integer
+width, height, sample_rate=48000 and channels=2. `set_track_playback` accepts track_id,
+boolean enabled/muted and integer gain_milli (0..4000; 1000 is unity).
+`set_clip_routing` accepts clip_id and routing containing video/audio selections. Each
+selection is {"mode":"auto"}, {"mode":"disabled"}, or {"mode":"stream","index":N}.
+`insert_clip` also accepts optional routing. Explicit indices require existing probed metadata.
+These are commands within the existing preview/commit protocol, with the same revision,
+permission, transaction and undo rules. The tool catalog supplies their strict JSON schemas.

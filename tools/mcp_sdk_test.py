@@ -61,6 +61,9 @@ async def exercise(project):
             dict(op='create_track', sequence_id='$sequence', kind='audio', name='Temporary A1', **{'as': 'audio'}),
             dict(op='reorder_track', sequence_id='$sequence', track_id='$audio', index='0'),
             dict(op='delete_track', track_id='$audio'),
+            dict(op='set_sequence_output', sequence_id='$sequence', frame_duration=rational(1001, 30000), output=dict(width=1280, height=720, sample_rate=48000, channels=2)),
+            dict(op='set_track_playback', track_id='$video', enabled=True, muted=True, gain_milli=750),
+            dict(op='set_clip_routing', clip_id='$opening', routing=dict(video=dict(mode='auto'), audio=dict(mode='disabled'))),
         ]
         preview_args = dict(await context('preview'), label='SDK opening edit', commands=commands)
         preview = await invoke('edit_preview', preview_args)
@@ -71,6 +74,9 @@ async def exercise(project):
         edited = (await invoke('project_snapshot', inspection))['snapshot']
         sequence = edited['sequences'][-1]
         assert sequence['name'] == 'SDK review' and sequence['frame_duration'] == rational(1001, 30000)
+        assert sequence['output'] == dict(width=1280, height=720, sample_rate=48000, channels=2)
+        assert sequence['tracks'][0]['playback'] == dict(enabled=True, muted=True, gain_milli=750)
+        assert sequence['tracks'][0]['clips'][0]['routing']['audio'] == dict(mode='disabled')
         assert len(sequence['tracks']) == 1
         assert sequence['tracks'][0]['clips'][0]['source_in'] == rational(1001, 30000)
         assert sequence['tracks'][0]['clips'][0]['duration'] == rational(1)

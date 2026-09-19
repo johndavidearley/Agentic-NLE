@@ -94,11 +94,36 @@ struct MediaAsset {
     std::optional<SourceMetadata> source{};
     bool operator==(const MediaAsset &) const = default;
 };
+enum class StreamMode { Automatic, Disabled, Explicit };
+struct StreamSelection {
+    StreamMode mode = StreamMode::Automatic;
+    std::uint32_t index = 0; // Only meaningful in Explicit mode.
+    bool operator==(const StreamSelection &) const = default;
+};
+struct ClipRouting {
+    StreamSelection video{}, audio{};
+    bool operator==(const ClipRouting &) const = default;
+};
+struct TrackPlayback {
+    bool enabled = true, muted = false; // Muting suppresses audio, not video.
+    std::uint32_t gain_milli = 1000;    // Linear amplitude: 1000 = unity, 0..4000.
+    bool operator==(const TrackPlayback &) const = default;
+};
+struct SequenceOutput {
+    std::uint32_t width = 1920, height = 1080;
+    std::uint32_t sample_rate = 48000, channels = 2;
+    bool operator==(const SequenceOutput &) const = default;
+};
+void validate_output(const SequenceOutput &output);
+void validate_routing(const ClipRouting &routing, const MediaAsset &asset, TrackKind track);
+std::optional<std::uint32_t> select_stream(const MediaAsset &asset, TrackKind kind,
+                                           const StreamSelection &selection);
 struct Clip {
     ClipId id;
     MediaId media;
     RationalTime position;
     TimeRange source;
+    ClipRouting routing{};
     bool operator==(const Clip &) const = default;
 };
 struct Track {
@@ -106,6 +131,7 @@ struct Track {
     std::string name;
     TrackKind kind;
     std::vector<Clip> clips;
+    TrackPlayback playback{};
     bool operator==(const Track &) const = default;
 };
 struct Sequence {
@@ -113,6 +139,7 @@ struct Sequence {
     std::string name;
     RationalTime frame_duration;
     std::vector<Track> tracks;
+    SequenceOutput output{};
     bool operator==(const Sequence &) const = default;
 };
 // Detached value DTO. Modifying a snapshot cannot mutate an Editor.

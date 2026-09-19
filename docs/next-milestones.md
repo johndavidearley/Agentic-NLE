@@ -1,7 +1,7 @@
 # Next development phase: a usable editor for people and agents
 
 Proposed 2026-09-15, following Milestone 6 at commit 30f3024. Milestone 7 completed on
-2026-09-16; Milestones 8–13 remain planned. This plan recommends completing the editing workflow first.
+2026-09-16. Milestone 8 passed its [Windows production acceptance](multitrack-evaluation.md), with new platform CI pending; Milestones 9–13 remain planned. This plan recommends completing the editing workflow first.
 It defines deliverables and acceptance evidence, not calendar estimates or new backend choices.
 
 ## Phase outcome and order

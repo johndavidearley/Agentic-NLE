@@ -10,6 +10,19 @@ struct CreateSequence {
     std::string name;
     RationalTime frame_duration{1, 24};
 };
+struct SetSequenceOutput {
+    SequenceId sequence;
+    RationalTime frame_duration;
+    SequenceOutput output;
+};
+struct SetTrackPlayback {
+    TrackId track;
+    TrackPlayback playback;
+};
+struct SetClipRouting {
+    ClipId clip;
+    ClipRouting routing;
+};
 struct CreateTrack {
     SequenceId sequence;
     TrackKind kind;
@@ -27,6 +40,7 @@ struct InsertClip {
     MediaId media;
     RationalTime position;
     TimeRange source;
+    ClipRouting routing{};
 };
 struct MoveClip {
     ClipId clip;
@@ -65,7 +79,8 @@ struct ReplaceMediaSource {
 };
 using Command =
     std::variant<CreateSequence, CreateTrack, RegisterMedia, InsertClip, MoveClip, TrimClip,
-                 SplitClip, DeleteClip, DeleteTrack, ReorderTrack, RelinkMedia, ReplaceMediaSource>;
+                 SplitClip, DeleteClip, DeleteTrack, ReorderTrack, RelinkMedia, ReplaceMediaSource,
+                 SetSequenceOutput, SetTrackPlayback, SetClipRouting>;
 struct CommandResult {
     std::optional<OperationId> operation;
     std::uint64_t revision = 0;

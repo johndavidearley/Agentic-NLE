@@ -18,6 +18,21 @@ Json tool_catalog() {
     const Json alias{
         {"type", "string"}, {"pattern", "^[A-Za-z][A-Za-z0-9_]{0,63}$"}, {"maxLength", 64}};
     const auto rational = object({{"value", integer}, {"rate", positive}}, {"value", "rate"});
+    const Json stream_choice{
+        {"oneOf",
+         Json::array(
+             {object({{"mode", {{"enum", {"auto", "disabled"}}}}}, {"mode"}),
+              object({{"mode", {{"const", "stream"}}},
+                      {"index", {{"type", "integer"}, {"minimum", 0}, {"maximum", 4294967295ULL}}}},
+                     {"mode", "index"})})}};
+    const auto routing =
+        object({{"video", stream_choice}, {"audio", stream_choice}}, {"video", "audio"});
+    const auto output = object(
+        {{"width", {{"type", "integer"}, {"minimum", 2}, {"maximum", 3840}, {"multipleOf", 2}}},
+         {"height", {{"type", "integer"}, {"minimum", 2}, {"maximum", 2160}, {"multipleOf", 2}}},
+         {"sample_rate", {{"const", 48000}}},
+         {"channels", {{"const", 2}}}},
+        {"width", "height", "sample_rate", "channels"});
     Json actions = Json::array();
     const auto action = [&](const std::string &name, Json properties, Json required,
                             bool returns_id = false) {
@@ -36,8 +51,20 @@ Json tool_catalog() {
             {"media_id", reference},
             {"position", rational},
             {"source_in", rational},
-            {"duration", rational}},
+            {"duration", rational},
+            {"routing", routing}},
            {"track_id", "media_id", "position", "source_in", "duration"}, true);
+    action("set_sequence_output",
+           {{"sequence_id", reference}, {"frame_duration", rational}, {"output", output}},
+           {"sequence_id", "frame_duration", "output"});
+    action("set_track_playback",
+           {{"track_id", reference},
+            {"enabled", {{"type", "boolean"}}},
+            {"muted", {{"type", "boolean"}}},
+            {"gain_milli", {{"type", "integer"}, {"minimum", 0}, {"maximum", 4000}}}},
+           {"track_id", "enabled", "muted", "gain_milli"});
+    action("set_clip_routing", {{"clip_id", reference}, {"routing", routing}},
+           {"clip_id", "routing"});
     action("move_clip", {{"clip_id", reference}, {"track_id", reference}, {"position", rational}},
            {"clip_id", "track_id", "position"});
     action("trim_clip",

@@ -140,8 +140,13 @@ jobs:
           fi
       - name: Record probe backend
         run: ffprobe -version
+      - name: Prepare matching FFmpeg development files
+        shell: python
+        run: |
+          import os, subprocess, sys
+          subprocess.run([sys.executable, 'tools/prepare_ffmpeg.py', os.environ['CMAKE_PREFIX_PATH'], 'build-ffmpeg'], check=True)
       - name: Configure desktop and media corpus
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNLE_BUILD_DESKTOP=ON -DNLE_MEDIA_INTEGRATION=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DNLE_BUILD_DESKTOP=ON -DNLE_MEDIA_INTEGRATION=ON -DNLE_FFMPEG_ROOT=build-ffmpeg
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Test
@@ -163,6 +168,7 @@ jobs:
           path: |
             build/playback-evaluation-*.json
             build/precision-evaluation-*.json
+            build/multitrack-evaluation-*.json
             build/desktop-*.png
             build/Testing/Temporary/LastTest.log
 

@@ -31,3 +31,5 @@ Milestone 5: [0011 Shared source origins and decoded frame lookup](0011-source-o
 - [0012: Local MCP editing adapter](0012-local-mcp-adapter.md)
 
 - [0013: Shared document ownership and recovery checkpoints](0013-document-ownership-and-recovery.md)
+
+- [0014: Multi-track decoding backend](0014-multitrack-backend.md)

@@ -1,0 +1,167 @@
+{
+  "date": "2026-09-18",
+  "source_base": "4155e068e037fb0963e3f4c267049deba0136da5",
+  "state": "Milestone 8 working changes, Windows local acceptance",
+  "host": {
+    "name": "Typhoon",
+    "os": "Windows x64",
+    "cpu": "AMD Ryzen 5 2600, 6 cores / 12 logical processors",
+    "installed_ram_bytes": 17101860864,
+    "compiler": "MSVC 19.44",
+    "qt": "6.10.3",
+    "runtime_ffmpeg": "7.1.3",
+    "fixture_ffmpeg": "9.0.1"
+  },
+  "release_600s": {
+    "audio_max_sample_error": 0,
+    "av_delivery_drift_ms": 0.4980311111110381,
+    "backend": "sequence-worker",
+    "black_errors": 0,
+    "cancel_ms": 7,
+    "duration_seconds": 600,
+    "early_av_pairs": 90,
+    "frame_errors": 0,
+    "initial_ready_ms": 457,
+    "late_av_pairs": 90,
+    "passed": true,
+    "presentation_drift_ms": 0.27609999997522694,
+    "seek_p95_ms": 579,
+    "worker": {
+      "dropped": 2,
+      "frames": 17984,
+      "late_frames": [
+        {
+          "late_us": 37721,
+          "timeline_us": 62028633
+        },
+        {
+          "late_us": 39108,
+          "timeline_us": 62162100
+        }
+      ],
+      "max_encode_us": 80020,
+      "max_tick_gap_us": 49127,
+      "queue_peak_bytes": 602030,
+      "type": "ended",
+      "underruns": 0
+    },
+    "peak_process_tree_rss_bytes": 118321152,
+    "rss_sampling_interval_ms": 25,
+    "elapsed_wall_seconds": 611.75,
+    "exit_code": 0
+  },
+  "release_12s": {
+    "audio_max_sample_error": 0,
+    "av_delivery_drift_ms": 0.7842177777777893,
+    "backend": "sequence-worker",
+    "black_errors": 0,
+    "cancel_ms": 6,
+    "duration_seconds": 12,
+    "early_av_pairs": 90,
+    "frame_errors": 0,
+    "initial_ready_ms": 484,
+    "late_av_pairs": 90,
+    "passed": true,
+    "presentation_drift_ms": 0.9283999999993249,
+    "seek_p95_ms": 541,
+    "worker": {
+      "dropped": 0,
+      "frames": 361,
+      "late_frames": [],
+      "max_encode_us": 11442,
+      "max_tick_gap_us": 4372,
+      "queue_peak_bytes": 601970,
+      "type": "ended",
+      "underruns": 0
+    }
+  },
+  "debug_12s": {
+    "audio_max_sample_error": 0,
+    "av_delivery_drift_ms": 1.686268888888819,
+    "backend": "sequence-worker",
+    "black_errors": 0,
+    "cancel_ms": 11,
+    "duration_seconds": 12,
+    "early_av_pairs": 90,
+    "frame_errors": 0,
+    "initial_ready_ms": 628,
+    "late_av_pairs": 90,
+    "passed": true,
+    "presentation_drift_ms": 1.1547000000002994,
+    "seek_p95_ms": 732,
+    "worker": {
+      "dropped": 0,
+      "frames": 361,
+      "late_frames": [],
+      "max_encode_us": 32266,
+      "max_tick_gap_us": 4829,
+      "queue_peak_bytes": 548597,
+      "type": "ended",
+      "underruns": 0
+    }
+  },
+  "validation": {
+    "full_debug_tests_passed": 42,
+    "full_release_tests_passed": 42,
+    "default_core_tests_passed": 29,
+    "headless_mcp_tests_passed": 32,
+    "format_check": "passed",
+    "windows_deployed_smoke": "passed without Qt SDK paths",
+    "audio_device_clock": "passed with silent PCM",
+    "milestone_8_platform_ci": "pending"
+  },
+  "after_portability_conversions": {
+    "release_12s": {
+      "audio_max_sample_error": 0,
+      "av_delivery_drift_ms": 0.3115111111111989,
+      "backend": "sequence-worker",
+      "black_errors": 0,
+      "cancel_ms": 6,
+      "duration_seconds": 12,
+      "early_av_pairs": 90,
+      "frame_errors": 0,
+      "initial_ready_ms": 457,
+      "late_av_pairs": 90,
+      "passed": true,
+      "presentation_drift_ms": 3.7311000000004393,
+      "seek_p95_ms": 552,
+      "worker": {
+        "dropped": 0,
+        "frames": 361,
+        "late_frames": [],
+        "max_encode_us": 11337,
+        "max_tick_gap_us": 4591,
+        "queue_peak_bytes": 601970,
+        "type": "ended",
+        "underruns": 0
+      }
+    },
+    "debug_12s": {
+      "audio_max_sample_error": 0,
+      "av_delivery_drift_ms": 2.0451255555555683,
+      "backend": "sequence-worker",
+      "black_errors": 0,
+      "cancel_ms": 7,
+      "duration_seconds": 12,
+      "early_av_pairs": 90,
+      "frame_errors": 0,
+      "initial_ready_ms": 657,
+      "late_av_pairs": 90,
+      "passed": true,
+      "presentation_drift_ms": 1.0838999999992929,
+      "seek_p95_ms": 746,
+      "worker": {
+        "dropped": 0,
+        "frames": 361,
+        "late_frames": [],
+        "max_encode_us": 34586,
+        "max_tick_gap_us": 5320,
+        "queue_peak_bytes": 550269,
+        "type": "ended",
+        "underruns": 0
+      }
+    },
+    "release_playback_and_supervision_tests": "4/4 passed including corpus setup",
+    "debug_playback_and_supervision_tests": "4/4 passed including corpus setup"
+  }
+}

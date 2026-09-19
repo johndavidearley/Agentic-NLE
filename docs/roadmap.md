@@ -112,7 +112,7 @@ See [the detailed plan](next-milestones.md) for scope, dependencies, acceptance 
 | Milestone | Main outcome | Status |
 | --- | --- | --- |
 | 7 — Reliable Projects and Recovery | Verified platform baseline, coordinated saves and recoverable desktop work | Complete |
-| 8 — Multi-track Playback | B-roll, dialogue and music play together with defined routing and timing | Planned |
+| 8 — Multi-track Playback | B-roll, dialogue and music play together with defined routing and timing | Local acceptance passed; platform CI pending |
 | 9 — Practical Timeline Editing | Zoom, scroll, drag, trim, snap, thumbnails and waveforms | Planned |
 | 10 — Export a Finished Video | A validated output file matching the supported sequence | Planned |
 | 11 — Agent Media Preparation | Approved import/relink and observable export jobs through MCP | Planned |
@@ -122,8 +122,8 @@ See [the detailed plan](next-milestones.md) for scope, dependencies, acceptance 
 Milestone 7 is complete: protected document saves, bounded recovery checkpoints and explicit
 recovery choices are verified with process termination, corrupt-checkpoint fallback and
 conflicting writers. All 28 platform CI jobs passed on `b2978a0`. See
-[recovery behavior](project-recovery.md) and [validation results](recovery-evaluation.md). Milestone 8 begins with a bounded backend
-prototype before adopting a multi-track implementation. Milestone 10 completes the first
+[recovery behavior](project-recovery.md) and [validation results](recovery-evaluation.md). Milestone 8 passed its prototype and ten-minute Windows production acceptance;
+[results](multitrack-evaluation.md) record the unchanged targets, tests and pending platform CI. Milestone 10 completes the first
 human import/edit/export workflow; Milestone 12 completes the shared local agent workflow.
 Each milestone needs its own measured exit evidence before it can be marked complete.
 

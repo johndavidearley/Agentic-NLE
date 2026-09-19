@@ -1,94 +1,91 @@
 # Desktop preview and timeline
 
-Milestones 4–5 provide an optional Qt desktop, an isolated playback worker, and indexed
-paused seeking/frame stepping with a shared source clock.
-The core, CLI, native format and command boundary remain independent of the UI.
+Milestone 8 adds a coordinated sequence worker for two video and four audio tracks.
+The core, CLI, native format and command boundary remain independent of Qt and FFmpeg.
+Windows [production acceptance](multitrack-evaluation.md) passed the fixed ten-minute targets.
+New platform CI remains pending; [the prototype gate](multitrack-prototype.md) records backend selection.
 
 ## Build
 
-Requires a Qt 6.8+ SDK with Core, Gui, Widgets, Network, Concurrent and Multimedia.
-Qt 6.10.3 is the locally tested/pinned SDK. Enable it explicitly:
+Use the pinned Qt 6.10.3 SDK (Core, Gui, Widgets, Network, Concurrent and Multimedia) and its
+FFmpeg 7 runtime. Prepare matching public headers/import libraries explicitly before CMake:
 
 ~~~powershell
-cmake -S . -B build -DNLE_BUILD_DESKTOP=ON -DCMAKE_PREFIX_PATH="D:/Qt/6.10.3/msvc2022_64"
+python tools/prepare_ffmpeg.py "D:/Qt/6.10.3/msvc2022_64" build-ffmpeg
+cmake -S . -B build -DNLE_BUILD_DESKTOP=ON -DCMAKE_PREFIX_PATH="D:/Qt/6.10.3/msvc2022_64" -DNLE_FFMPEG_ROOT=build-ffmpeg
 cmake --build build --config Release
 cmake --build build --config Release --target deploy-desktop
-.\build\Release\editor-desktop.exe --ffprobe "D:\tools\ffprobe.exe"
-~~~
-
-On this development machine the SDK is in build/tools/Qt/6.10.3/msvc2022_64. The launcher
-in tools/run-desktop.ps1 locates that SDK and the downloaded probe tool, or accepts explicit
-paths:
-
-~~~powershell
 .\tools\run-desktop.ps1
-.\tools\run-desktop.ps1 -ProjectFile "D:\projects\edit.nle"
 ~~~
 
-Qt is never downloaded by CMake. deploy-desktop copies Windows runtime dependencies
-into the ignored build output for local development; it is not a release packaging/license
-compliance workflow.
+The helper verifies the upstream source archive hash, extracts headers and uses the installed
+Qt runtime. It does not build or bundle third-party source. Windows requires MSVC x64 tools;
+Linux/macOS create development symlinks to the matching SDK libraries. See ADR 0014 for
+licensing and ABI requirements. CMake does not download Qt or FFmpeg.
 
-Linux/macOS use the same CMake option and their Qt prefix, then ./build/editor-desktop.
-On Ubuntu, the Qt SDK also needs the OpenGL/EGL and xkbcommon development packages;
-the desktop CI job lists these prerequisites. Installing only the runtime libraries can
-leave Qt's CMake dependency discovery incomplete. See [Qt Linux requirements](https://doc.qt.io/qt-6.10/linux-requirements.html).
-For the pinned Linux SDK, include the `icu` and `qtdeclarative` archives alongside `qtbase`
-and the `qtmultimedia` module. Its FFmpeg playback plugin links Qt Quick/QML even though this
-application uses Widgets. The CI job checks the plugin with `ldd` before running tests.
-Run from the configured build tree or supply the appropriate Qt runtime environment.
-Packaging installers and macOS application bundles are deferred.
+On this machine Qt is in `build/tools/Qt/6.10.3/msvc2022_64`; the launcher locates it and
+ffprobe automatically. Pass `-ProjectFile`, `-QtDirectory` or `-Ffprobe` to override.
+Windows deployment copies runtime dependencies into ignored build output, not an installer.
+Linux/macOS run `./build/editor-desktop` with their Qt prefix. Ubuntu also needs the packages
+listed in CI, plus the Qt `icu` and `qtdeclarative` archives used by the retained comparison worker.
 
-NLE_BUILD_DESKTOP is off by default. Playback-plan tests remain available without Qt.
-When NLE_MEDIA_INTEGRATION=ON and NLE_BUILD_DESKTOP=ON, CTest also exercises the Qt worker
-and desktop actions against the generated media corpus. Tests require ffmpeg, ffprobe and
-Python 3, and use an offscreen platform with audible output disabled. Video preview requires
-ffprobe at runtime to index decoded frames. Negative-origin preview also requires ffmpeg
-next to ffprobe (or both on PATH) for a verified temporary packet-copy source.
+The default core and optional MCP builds require neither Qt nor FFmpeg. Enable
+`NLE_MEDIA_INTEGRATION=ON` with the desktop to run generated media, multi-track and supervision
+tests. Tests require Python, ffmpeg and ffprobe. The primary benchmark uses silent output;
+a separate device-clock test sends silence when a compatible output device is available.
 
 ## Editing and preview
 
-1. Import media from the toolbar. The probe runs in the background and can be cancelled.
-   A successful import adds a logical asset and preserves source facts in the project.
-2. Select an asset and choose Append to timeline. The sequence, track and clip creation
-   form one undoable transaction. The first sequence is created when needed.
-3. Play/pause, Stop, drag the position slider, or click the timeline ruler to seek.
-   Click a clip to inspect it. Previous frame / Next frame pauses and visits indexed frame
-   boundaries within the current clip. After jumping straight to sequence end, seek into its
-   last clip first if that clip has not yet been prepared. Missing/changed paths report errors.
-4. Set position, source in and duration in seconds. Decimals and exact fractions such as
-   1001/30000 are accepted. Apply, Split and Delete use the core commands. Invalid edits
-   preserve the document. Undo/redo restores the same editable timeline.
-5. Save/Open use native version 4. Versions 1–3 migrate while preserving their timing semantics.
-   Closing or replacing an unsaved document prompts before discarding changes.
-   Dirty documents receive recovery checkpoints every 30 seconds; [project recovery](project-recovery.md)
-   explains draft restoration, Save As and shared writer ownership. Undo history remains session-local, as it does in the CLI.
+1. Import media, then select an asset. **Append to timeline** keeps the existing simple workflow.
+   **Place on track...** chooses an existing track or creates a top video/audio track, with an
+   exact position, source in and duration. Video placement includes embedded audio by default.
+   Audio-only placement is deliberate and creates a separate clip; existing routing is unchanged.
+2. Select a clip and use **Track / routing...** to enable/mute the track, set linear gain, or
+   choose/disable individual source streams. Each accepted dialog commits one undoable edit.
+3. Play, pause, stop, scrub or click the ruler. Previous/next frame now visits the sequence's
+   output frame grid, which stays meaningful across different source frame rates and gaps.
+   Paused seeking still selects the exact source frame held at the requested timeline position.
+4. Trim, split and delete through the inspector. Existing decimal/fraction inputs remain.
+   Track-placement inputs use whole seconds or exact fractions. Invalid edits leave the document
+   unchanged; undo/redo and MCP use the same typed commands.
+5. Save/Open writes native version 5 and migrates versions 1–4 without moving clips, dropping
+   embedded audio or replacing their frame rate. [Recovery](project-recovery.md) remains active.
 
-Use Probe tool… to choose ffprobe if it is not on PATH. Existing offline assets can be
-relinked with the CLI's verified relink command; reopen the saved project afterward.
-The sequence selector can inspect existing sequences. The graphical ruler is a compact
-whole-sequence view; detailed zooming, scrolling and drag editing are later work.
+Sequence output settings are persisted and editable through the typed command/MCP interface.
+A broader output-settings UI, zoom, snapping, waveforms and drag editing belong to Milestone 9.
 
-## Supported preview slice
+## Playback contract
 
-- One populated track per sequence, with the clip's embedded audio if present. Empty extra
-  tracks are permitted. Independent populated tracks remain editable but preview rejects
-  them rather than silently omitting or mixing content.
-- At most one video and one audio stream per source. Shared sources require known stream starts;
-  unknown audio-only starts are permitted. Shared-clock assets retain known positive/negative
-  origins and unequal stream starts. Legacy assets retain their old independent-stream
-  convention; offset legacy sources require re-import as a new asset for shared-clock preview.
-- Cuts and silent/blank gaps. The clock holds while a new clip worker loads, so this is not
-  seamless or sample-accurate cut playback. Preview stops at sequence end.
-- Rational edit times and indexed paused frame selection. The frame held at a seek position
-  is selected by actual decoded timestamps through the next presentation time. The worker
-  verifies that selected timestamp; the requested playhead remains exact. Internal Qt seeks
-  use milliseconds. Live playback scheduling and frame display still follow the backend.
-- Timeline/source positions up to 24 hours and source ranges at least a millisecond in the adapter. The core's
-  broader valid ranges still save/edit normally but may not qualify for this preview.
+- Stored track order is top to bottom. The first enabled active video wins; uncovered output
+  is black. Audio from hidden video tracks continues unless muted or routed off.
+- Stereo float at 48 kHz: sum in track order, multiply by linear gain (1000 = unity), then
+  hard-clip to [-1,1]. Muting affects audio; disabling affects both audio and video.
+- Output samples are on the global 48 kHz grid. A fractional clip boundary starts/ends at the
+  first output sample on/after that boundary. Source sampling floors the mapped source time;
+  FFmpeg resamples/downmixes other supported source rates/layouts. Coarse packet timestamps
+  within one timestamp tick preserve sample continuity. Larger timestamp gaps remain silent.
+- Source coordinates retain the persisted shared origin, including negative starts and delayed
+  streams. Legacy per-stream origins stay independent. Explicit routing selects recorded stream
+  indices; automatic routing selects the first stored matching stream.
+- Video is evaluated at exact output frame times. Hold the last decoded presentation timestamp
+  at/before the mapped position until the next frame or declared stream end. Preview letterboxes
+  into at most 960x540, respecting sample aspect ratio and the source color matrix/range
+  (unspecified matrix uses FFmpeg's default). Images cross IPC as JPEG previews.
+- One clock: the audio sink's processed samples when audible, or monotonic time when silent.
+  A bounded queue preloads 240 ms and retains at most 320 ms, with a 64 MiB hard limit.
+  The producer encodes preview images before enqueueing; image encoding never blocks the clock.
+  Cuts decode ahead without restarting the worker. Seek/edit/stop discards the previous process.
+- Initial measured profile: 1920x1080 SDR sources at 30 or 30000/1001 fps, VFR included;
+  two video/four audio tracks, speed 1, hard cuts. Output permits 1..60 fps, up to 24 hours;
+  timing denominators above one billion are outside preview support. Other performance profiles
+  are unmeasured. Rotated and HDR inputs require normalization; no color-managed display claim.
+- Audio seeking decodes from the source origin to retain a stable sample/resampler anchor.
+  Long sources may hit the five-second operation deadline; no unrestricted long-source seek
+  performance claim. The project remains editable when preview rejects a source/profile.
 
-No export, effects, multi-track mixing, color-managed/HDR monitoring, persisted frame indexes,
-proxy generation or general timeline mixing is included.
+No export, effects, transparency, transitions, proxy generation or physical speaker/display
+synchronization claim is included. Old single-track Qt playback remains for regression and
+prototype comparison only.
 
 ## Failure and cancellation behavior
 
@@ -96,21 +93,3 @@ A separate worker owns decoding/audio. Open/seek invalidates old output and coal
 requests to the latest position. Cancel/Stop kills the worker asynchronously. Missing sources,
 changed size, unsupported source layout, failed workers, malformed/oversized IPC, decoder
 errors, load timeout and stalled playback are surfaced without changing the project.
-
-Frame preparation has a 30-second total deadline, 200,000-frame limit and 16 MiB process
-output limit. A single cache is keyed by path, size, modification time and source metadata.
-Negative origins use a temporary packet-copy Matroska source, with frame/stream verification
-and a 512 MiB output cap. It is removed when the cached source is replaced or the transport
-is destroyed. This does not alter the original file or persisted project locators.
-
-Worker loading uses a 20-second transport deadline, and the worker enforces the same readiness watchdog value; active playback without progress stops after five
-seconds. During playback, preview images are suppressed once queued socket bytes reach 2 MiB
-to preserve timing telemetry, while transfer remains capped at 4 MiB queued/buffered data and
-1 MiB per encoded preview image. Frames are resized to at most 960x540 and image transfers
-limited to roughly 30 fps; this is
-an inspection preview, not a lossless render path. The backend is fixed to FFmpeg with local
-file protocols and software decoding for the validated baseline.
-
-The worker uses Qt's audio scheduling. Timing tests measure decoder-delivery observations,
-not physical speaker/display delay. See [Milestone 5 evaluation](precision-evaluation.md) and
-[ADR 0011](adr/0011-source-origins-and-frame-index.md) for evidence and dependency details.

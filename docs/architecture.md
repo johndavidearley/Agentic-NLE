@@ -1,7 +1,8 @@
 # Architecture
 
-Implemented through Milestone 7, including shared document ownership and recovery.
-[Validation](recovery-evaluation.md) records the completed platform matrix.
+Implemented through Milestone 8, including coordinated multi-track playback.
+[Production validation](multitrack-evaluation.md) distinguishes local evidence from platform CI.
+[Recovery validation](recovery-evaluation.md) records the preceding milestone platform matrix.
 
 ~~~text
 Qt desktop -----+
@@ -13,7 +14,7 @@ MCP stdio ------+          |                          |
                            |
                      detached snapshot + durable operation records
                            |
-                     native version 4 persistence
+                     native version 5 persistence
 ~~~
 
 ## Boundaries
@@ -24,7 +25,8 @@ transactions and typed commands. src/media owns the optional external ffprobe ad
 src/cli exercises editing and source discovery without Qt or display decoding.
 src/playback builds immutable preview plans from detached snapshots and maps rational
 timeline positions to source ranges without Qt. src/desktop owns Widgets, asynchronous
-import and transport supervision. Its separate worker owns Qt Multimedia and decoding.
+import and transport supervision. src/decode owns the optional FFmpeg decoder/renderer;
+its supervised desktop worker owns bounded queues and Qt audio output.
 There are no protocol, media backend or GUI dependencies in the command engine.
 
 Editor owns live state and immutable shared history entries. Its public entry points are
@@ -70,8 +72,9 @@ Verified replacement checks kind and all clip bounds; ordinary original locator 
 stale source metadata. Both paths preserve stable IDs and are undoable. File availability is
 computed separately on inspection. See [media probing](media-probing.md).
 
-Native version 4 adds explicit source-clock conventions and duration estimates. Versions
-1–3 are explicitly migrated at load while preserving legacy per-stream semantics; unknown versions fail. No history is invented for imported
+Native version 5 adds sequence output, track playback and clip stream routing settings.
+Versions 1–4 migrate explicitly while preserving IDs, clip coordinates, frame rates, embedded
+audio and the source-clock convention. Unknown versions fail. No history is invented for imported
 old projects. Attribution records survive undo and save/load, but are not an authenticated
 or replayable event journal. Persistence consumes snapshots and atomically replaces a
 fully staged file during ordinary operation; power-loss durability is not promised.
@@ -85,35 +88,41 @@ outside the UI thread; a changed project/revision rejects its stale result. Savi
 the shared DocumentFile service with cooperative ownership and expected-file checks. Two
 validated checkpoint slots support explicit recovery; see [project recovery](project-recovery.md). No UI state, active transport or undo stack is needed to reopen a project.
 
-A validated preview plan is a detached, revision-labelled copy of one populated track.
-The Qt transport sends a source path/range to a separate worker over a private local socket.
-The worker uses Qt Multimedia's FFmpeg backend with software decoding, emits default-device
-audio, and returns timestamped preview images and position observations. Cancel or seek
-invalidates old output and kills the worker; rapid seeks coalesce to the latest request.
-Local socket transfer limits, load deadlines and a playback watchdog bound failures.
-The worker is process isolation, not a security sandbox.
+A validated sequence plan is a detached, revision-labelled snapshot. Exact evaluation selects
+the top active enabled video and every enabled audio contribution, including audio beneath
+covered video. Track settings and explicit stream routing use typed undoable commands;
+sequence output settings and split-preserved clip routing are persisted in version 5.
 
-Core edit times remain exact fractions. A separate signed SourceTime models original packet
-origins. Shared sources retain relative stream starts and the union of their spans; legacy
-assets keep the earlier convention. Verified relink preserves the asset's clock mode.
+The Qt transport sends the fixed snapshot to a supervised worker over a private local socket.
+A producer decodes through FFmpeg, mixes stereo float PCM, and prepares preview images before
+queueing. One QAudioSink processed-sample clock drives audible playback; silent tests use one
+monotonic clock. Video follows the same sample clock. A 240 ms prebuffer and bounded 320 ms
+queue decode across cuts. The clock thread handles audio feeding and prepared image delivery.
 
-A bounded background ffprobe job builds a decoded-frame index. Paused seeks choose a held
-frame from presentation timestamps and verify its decoded PTS in the Qt worker. Frame-step
-controls change only the playhead. The index/cache is invalidated by source identity/metadata
-or modification-time changes and is not persisted. Negative origins use a temporary verified
-packet-copy source because the measured Qt backend cannot seek negative packets directly.
-Cancellation coalesces both frame preparation and playback work.
+Core edit times remain exact fractions. Shared source origins retain relative stream starts
+and their union of spans; legacy assets keep their earlier convention. Video selects the
+held decoded PTS at each exact output frame time. Paused seeking selects at the requested
+time; frame stepping follows the sequence output grid. Audio is resampled to 48 kHz stereo,
+mixed in track order with explicit gain, then hard-clipped. Source timing and stream routing
+stay independent of visible-video priority. Negative origins decode from original media.
 
-Preview includes cuts and blank/silent gaps, with loading pauses at cuts. It does not mix
-separate tracks or guarantee sample-accurate audio cuts. See [desktop preview](desktop-preview.md),
-[evaluation](precision-evaluation.md) and [ADR 0011](adr/0011-source-origins-and-frame-index.md).
+Cancel, seek, pause or edit invalidates old output and kills the worker; rapid seeks coalesce
+to the latest request. Source identity/mtime checks, bounded local socket transfers, decoder
+deadlines and a playback watchdog contain failures without changing the project. The worker
+provides process isolation, not a security sandbox. Long audio-source seeks remain deadline
+bounded because decoding from the origin preserves a stable resampling/sample anchor.
+
+The old single-track Qt player and its frame-index/negative-packet-copy adapter remain only
+for regression tests and the recorded backend comparison. They are no longer the desktop's
+sequence playback path. See [desktop preview](desktop-preview.md),
+[production evaluation](multitrack-evaluation.md) and [ADR 0014](adr/0014-multitrack-backend.md).
 
 ## Local agent adapter
 
 src/mcp owns JSON wire conversion, schema discovery, stdio lifecycle and a bounded session
 registry for proposals and retry results. Its launcher owns the project path, fixed actor,
 permissions and cooperative save lock. JSON/MCP do not enter nle_core. Agent edits use the
-existing Editor/Transaction API and preserve version-4 native files and exact source clocks.
+existing Editor/Transaction API and preserve version-5 playback settings and exact source clocks.
 Sessions inspect existing registered media; no backend, Qt or media file access is required.
 See [MCP boundary](mcp-boundary.md) for revision, authorization, persistence and retry limits.
 
@@ -127,6 +136,6 @@ The audit cap is 10,000 durable operations. There is no silent loss of audit met
 The [benchmark](performance.md) measures 100-command transactions on 1,000/10,000 clips.
 This validates a bounded milestone workload, not professional-scale performance.
 Independent live Editors, distributed merges, remote authentication, durable retry replay,
-decoder/render determinism, seamless playback and advanced timeline interaction remain outside
+general render determinism, export and advanced timeline interaction remain outside
 this implementation. MCP has process-local retry protection; desktop/CLI/MCP writes share
 cooperative file ownership, and recovery restores checkpoints without restoring sessions.
