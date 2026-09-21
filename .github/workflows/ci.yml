@@ -170,6 +170,8 @@ jobs:
             build/precision-evaluation-*.json
             build/multitrack-evaluation-*.json
             build/desktop-*.png
+            build/timeline-*.png
+            build/timeline-evaluation-*.json
             build/Testing/Temporary/LastTest.log
 
   mcp:

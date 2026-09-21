@@ -1,6 +1,6 @@
 # Architecture
 
-Implemented through Milestone 8, including coordinated multi-track playback.
+Implemented through Milestone 9, including provisional timeline editing and derived media caches.
 [Production validation](multitrack-evaluation.md) distinguishes local evidence from platform CI.
 [Recovery validation](recovery-evaluation.md) records the preceding milestone platform matrix.
 
@@ -25,7 +25,13 @@ transactions and typed commands. src/media owns the optional external ffprobe ad
 src/cli exercises editing and source discovery without Qt or display decoding.
 src/playback builds immutable preview plans from detached snapshots and maps rational
 timeline positions to source ranges without Qt. src/desktop owns Widgets, asynchronous
-import and transport supervision. src/decode owns the optional FFmpeg decoder/renderer;
+import, transport supervision and the timeline widget. The pure commands/timeline helpers
+translate gestures into existing typed commands using exact rational snapping. Each gesture
+validates detached transaction candidates; only release publishes a command with its captured
+revision. Provisional moves do not enter the live history or audit log.
+The desktop media cache supervises two separate bounded decode processes, revalidates source
+identity outside the UI thread and discards obsolete generations. Cache data is disposable;
+see [timeline editing](timeline-editing.md) for limits. src/decode owns the optional FFmpeg decoder/renderer;
 its supervised desktop worker owns bounded queues and Qt audio output.
 There are no protocol, media backend or GUI dependencies in the command engine.
 
@@ -136,6 +142,6 @@ The audit cap is 10,000 durable operations. There is no silent loss of audit met
 The [benchmark](performance.md) measures 100-command transactions on 1,000/10,000 clips.
 This validates a bounded milestone workload, not professional-scale performance.
 Independent live Editors, distributed merges, remote authentication, durable retry replay,
-general render determinism, export and advanced timeline interaction remain outside
+general render determinism, export and advanced ripple/group timeline interaction remain outside
 this implementation. MCP has process-local retry protection; desktop/CLI/MCP writes share
 cooperative file ownership, and recovery restores checkpoints without restoring sessions.

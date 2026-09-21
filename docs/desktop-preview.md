@@ -52,7 +52,9 @@ a separate device-clock test sends silence when a compatible output device is av
    embedded audio or replacing their frame rate. [Recovery](project-recovery.md) remains active.
 
 Sequence output settings are persisted and editable through the typed command/MCP interface.
-A broader output-settings UI, zoom, snapping, waveforms and drag editing belong to Milestone 9.
+Milestone 9 adds the output-settings dialog, zoom/scroll, provisional drag/trim gestures,
+source in/out selection, thumbnails and waveforms. See [timeline editing](timeline-editing.md)
+for controls, shortcuts, cache limits and supported layout.
 
 ## Playback contract
 

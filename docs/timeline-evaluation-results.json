@@ -1,0 +1,121 @@
+{
+  "date": "2026-09-20",
+  "status": "Windows local acceptance passed; platform CI pending",
+  "base_commit": "17a4a61",
+  "hardware": {
+    "name": "Typhoon",
+    "cpu": "AMD Ryzen 5 2600",
+    "cores": 6,
+    "threads": 12,
+    "memory_bytes": 17101860864,
+    "os": "Windows x64"
+  },
+  "build": {
+    "compiler": "MSVC 19.44",
+    "configuration": "Release",
+    "qt": "6.10.3",
+    "ffmpeg": "7.1.3",
+    "warnings_as_errors": true
+  },
+  "workload": {
+    "clips": 1000,
+    "tracks": 1,
+    "clip_seconds": 2,
+    "spacing_seconds": 3,
+    "media": "synthetic offline source; no cache attached to isolated gesture benchmark",
+    "logical_widget_size": [
+      1360,
+      540
+    ],
+    "iterations": 120,
+    "measurement": "provisional mouse movement plus synchronous viewport repaint"
+  },
+  "targets": {
+    "gesture_p95_ms": 16,
+    "press_ms": 50
+  },
+  "scales": [
+    {
+      "clips": 1000,
+      "commits": 6,
+      "gesture_max_ms": 4.8007,
+      "gesture_p50_ms": 2.4136,
+      "gesture_p95_ms": 2.9335,
+      "iterations": 120,
+      "press_ms": 0.3759,
+      "rejections": 5,
+      "scale": 1
+    },
+    {
+      "clips": 1000,
+      "commits": 6,
+      "gesture_max_ms": 6.7481,
+      "gesture_p50_ms": 3.8799,
+      "gesture_p95_ms": 5.9592,
+      "iterations": 120,
+      "press_ms": 0.3684,
+      "rejections": 5,
+      "scale": 1.5
+    },
+    {
+      "clips": 1000,
+      "commits": 6,
+      "gesture_max_ms": 12.4866,
+      "gesture_p50_ms": 6.8963,
+      "gesture_p95_ms": 9.7913,
+      "iterations": 120,
+      "press_ms": 0.434,
+      "rejections": 5,
+      "scale": 2
+    }
+  ],
+  "checks": {
+    "full_release": {
+      "passed": 50,
+      "total": 50
+    },
+    "full_debug": {
+      "passed": 50,
+      "total": 50
+    },
+    "independent_core": {
+      "passed": 30,
+      "total": 30
+    },
+    "independent_mcp": {
+      "passed": 33,
+      "total": 33
+    },
+    "final_release_ui": {
+      "passed": 7,
+      "total": 7
+    },
+    "deployed_cache_and_workflow": {
+      "passed": 2,
+      "total": 2
+    },
+    "visual_scales": [
+      1,
+      1.5,
+      2
+    ]
+  },
+  "source_sha256_lf": {
+    "CMakeLists.txt": "3747566d4930cb73df7405efc47895dd5994a2f08190ad308ca041133d26410b",
+    ".github/workflows/ci.yml": "e2cb50a08fa30451734cd3d5c97e4c759d64b73444f03e2e7add31b27923e549",
+    "src/commands/timeline.hpp": "416138b92895eb35af5bfa96d7cac5365cde6b284902a06e86738dac2e315bc1",
+    "src/commands/timeline.cpp": "b1d94658c6da987f81613fdaf9400f47eba1b2f887f7bac4abf59446db4f1fb6",
+    "src/desktop/timeline.hpp": "46b2397e67083e60a56d8d4e903be437eb30cfd5ba25fc1f606f876b6ae83f48",
+    "src/desktop/timeline.cpp": "71c1119bc7a1d2a43a0ceaa1af6c22e330ffb2e0c478c3617dda9e7690a47b99",
+    "src/desktop/media_cache.hpp": "0657a5b7d5e34b0241aa489c858ecf8565dd7529ef3f8c0bafa7c27df20b8c9f",
+    "src/desktop/media_cache.cpp": "b0d16a5a76e040f5b67dbdb052cd2e1057bede34b52477681a3c4114193e1838",
+    "src/desktop/cache_worker.cpp": "07ffb022898ca0c494a3871736eae39209c7e75ee0ab806366f6ab5ff118a8f1",
+    "src/desktop/window.hpp": "094519c3696870aa682d702df498adbfd909ef4fe9720fed0d64bcea04cea3d2",
+    "src/desktop/window.cpp": "2445159fabed9f7a7dc34aa39b0c497faeefe2c51e1944cd633d761c63f9b270",
+    "src/desktop/window_settings.cpp": "fb0413e2d0c5d854cf17adb00a74d6ddcbc91b92ae7932b168dab0009832e699",
+    "tests/timeline_edit.cpp": "74ea375d3c46b75af3dc62d8c987c0063805cc85d889e8f92402d652f52c5634",
+    "tests/qt_timeline.cpp": "fbe7c220927c1a0f7def00107636376fc83453c9895609792d5982db3bba8a52",
+    "tests/qt_cache.cpp": "e4c84661bdeb6f88754d9b8f2ce0eceba8e306d8ee1c7f210d7cf0aaf5f4340e",
+    "tests/qt_timeline_workflow.cpp": "fb68a9789bb5b594fa348f1f311b1c98ec2ed259b42dadea0084ad9a5c62d669"
+  }
+}

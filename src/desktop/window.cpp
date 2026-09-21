@@ -1,5 +1,7 @@
 #include "desktop/window.hpp"
+#include "desktop/media_cache.hpp"
 #include "project/persistence.hpp"
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QDir>
 #include <QFileDialog>
@@ -7,6 +9,8 @@
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
@@ -18,6 +22,7 @@
 #include <QtConcurrentRun>
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <set>
 namespace nle::desktop {
 namespace {
@@ -60,96 +65,17 @@ QPushButton *button(const QString &text, const QString &name) {
     return value;
 }
 } // namespace
-void Timeline::display(ProjectSnapshot project, SequenceId sequence, ClipId selected) {
-    project_ = std::move(project);
-    sequence_ = sequence;
-    selected_ = selected;
-    update();
-}
-double Timeline::scale() const {
-    double duration = 10;
-    for (const auto &sequence : project_.sequences)
-        if (sequence.id == sequence_)
-            for (const auto &track : sequence.tracks)
-                for (const auto &clip : track.clips)
-                    duration =
-                        std::max(duration, seconds(clip.position + clip.source.duration) + 1);
-    return static_cast<double>(std::max(1, width() - 120)) / duration;
-}
-void Timeline::paintEvent(QPaintEvent *) {
-    QPainter painter(this);
-    painter.fillRect(rect(), QColor("#141b25"));
-    const auto pixels = scale();
-    painter.setPen(QColor("#8b9caf"));
-    for (int tick = 0; tick <= 10; ++tick) {
-        const double x =
-            100 + static_cast<double>(tick) * static_cast<double>(std::max(1, width() - 120)) / 10;
-        painter.drawText(QPointF(std::min(x + 4, static_cast<double>(width() - 48)), 20),
-                         QString::number((x - 100) / pixels, 'f', 1) + "s");
-        painter.setPen(QColor("#273343"));
-        painter.drawLine(QPointF(x, 28), QPointF(x, height()));
-        painter.setPen(QColor("#8b9caf"));
-    }
-    int row = 0;
-    for (const auto &sequence : project_.sequences)
-        if (sequence.id == sequence_)
-            for (const auto &track : sequence.tracks) {
-                const int y = 38 + row++ * 58;
-                painter.setPen(QColor("#cbd5e1"));
-                painter.drawText(QRect(10, y, 85, 40), Qt::AlignVCenter,
-                                 QString::fromStdString(track.name));
-                for (const auto &clip : track.clips) {
-                    const QRectF block(100 + seconds(clip.position) * pixels, y,
-                                       std::max(2.0, seconds(clip.source.duration) * pixels), 42);
-                    painter.setBrush(clip.id == selected_ ? QColor("#267f8e") : QColor("#25465c"));
-                    painter.setPen(clip.id == selected_ ? QColor("#70e1d2") : QColor("#42708c"));
-                    painter.drawRoundedRect(block, 5, 5);
-                    QString name = "Clip " + QString::number(clip.id.value);
-                    for (const auto &asset : project_.media)
-                        if (asset.id == clip.media)
-                            name = QString::fromStdString(asset.name);
-                    painter.setPen(QColor("#e2f0f4"));
-                    painter.drawText(block.adjusted(8, 0, -5, 0), Qt::AlignVCenter,
-                                     painter.fontMetrics().elidedText(
-                                         name, Qt::ElideRight,
-                                         static_cast<int>(std::max(0.0, block.width() - 12))));
-                }
-            }
-    if (row == 0) {
-        painter.setPen(QColor("#7c8da2"));
-        painter.drawText(rect(), Qt::AlignCenter, "Import media, then append it to begin editing");
-    }
-    const double x = 100 + seconds(position_) * pixels;
-    painter.setPen(QPen(QColor("#f4bc72"), 2));
-    painter.drawLine(QPointF(x, 26), QPointF(x, height()));
-}
-void Timeline::mousePressEvent(QMouseEvent *event) {
-    if (event->button() != Qt::LeftButton || event->position().x() < 100)
-        return;
-    const auto time =
-        RationalTime{static_cast<std::int64_t>(
-                         std::clamp((event->position().x() - 100) / scale(), 0.0, 86400.0) * 1000),
-                     1000};
-    int row = 0;
-    for (const auto &sequence : project_.sequences)
-        if (sequence.id == sequence_)
-            for (const auto &track : sequence.tracks) {
-                const int y = 38 + row++ * 58;
-                if (event->position().y() >= y && event->position().y() <= y + 42)
-                    for (const auto &clip : track.clips)
-                        if (time >= clip.position && time < clip.position + clip.source.duration) {
-                            emit selected(clip.id);
-                            break;
-                        }
-            }
-    emit sought(time);
-}
 Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDirectory)
     : editor_(std::make_unique<Editor>("Untitled")), saved_(editor_->snapshot()),
       recoveryDirectory_(std::move(recoveryDirectory)), ffprobe_(std::move(ffprobe)),
-      transport_(std::move(worker), audible, this, ffprobe_) {
+      transport_(worker, audible, this, ffprobe_) {
+    auto cacheWorker = QFileInfo(worker).dir().filePath("nle-cache-worker");
+#ifdef _WIN32
+    cacheWorker += ".exe";
+#endif
+    mediaCache_ = new MediaCache(cacheWorker, this);
     setWindowTitle("Agentic NLE");
-    resize(1360, 850);
+    resize(1360, 900);
     auto *toolbar = addToolBar("Project");
     toolbar->setMovable(false);
     const auto action = [&](const QString &text, const auto &callback) {
@@ -168,6 +94,7 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
             saved_ = editor_->snapshot();
             sequence_ = {};
             selected_ = {};
+            sourceSelected_ = {};
             path_.clear();
             startDraft();
             refresh();
@@ -269,9 +196,20 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
     auto *left = new QWidget;
     auto *leftLayout = new QVBoxLayout(left);
     leftLayout->addWidget(new QLabel("MEDIA LIBRARY"));
-    library_ = new QListWidget;
+    library_ = new MediaLibrary;
+    library_->setDragEnabled(true);
+    library_->payload = [this] { return mediaDragPayload(); };
     library_->setObjectName("mediaLibrary");
     leftLayout->addWidget(library_);
+    auto *sourceRange = new QFormLayout;
+    sourceIn_ = new QLineEdit("0");
+    sourceOut_ = new QLineEdit;
+    sourceIn_->setObjectName("sourceSelectionIn");
+    sourceOut_->setObjectName("sourceSelectionOut");
+    sourceRange->addRow("Source in (s)", sourceIn_);
+    sourceRange->addRow("Source out (s)", sourceOut_);
+    leftLayout->addLayout(sourceRange);
+    connect(library_, &QListWidget::currentItemChanged, this, [this] { refreshSourceSelection(); });
     auto *append = button("Append to timeline", "appendButton");
     leftLayout->addWidget(append);
     connect(append, &QPushButton::clicked, this, &Window::appendSelected);
@@ -365,8 +303,23 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
     timelineHeading->addWidget(new QLabel("TIMELINE"));
     sequences_ = new QComboBox;
     timelineHeading->addWidget(sequences_);
+    auto *output = button("Sequence settings...", "sequenceSettingsButton");
+    timelineHeading->addWidget(output);
+    connect(output, &QPushButton::clicked, this, &Window::sequenceSettings);
     timelineHeading->addStretch();
-    timelineHeading->addWidget(new QLabel("Click a clip to inspect · click the ruler to seek"));
+    auto *snap = new QCheckBox("Snap");
+    snap->setObjectName("snapToggle");
+    snap->setChecked(true);
+    snap->setToolTip("Snap to output frames, playhead and clip edges within 8 pixels");
+    timelineHeading->addWidget(snap);
+    timelineHeading->addWidget(new QLabel("Zoom"));
+    auto *zoom = new QSlider(Qt::Horizontal);
+    zoom->setObjectName("timelineZoom");
+    zoom->setRange(0, 100);
+    zoom->setValue(58);
+    zoom->setFixedWidth(150);
+    zoom->setAccessibleName("Timeline zoom");
+    timelineHeading->addWidget(zoom);
     layout->addLayout(timelineHeading);
     connect(sequences_, &QComboBox::currentIndexChanged, this, [this](int index) {
         if (index >= 0) {
@@ -376,7 +329,29 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
         }
     });
     timeline_ = new Timeline;
-    layout->addWidget(timeline_);
+    timeline_->setCache(mediaCache_);
+    connect(mediaCache_, &MediaCache::ready, timeline_->viewport(), qOverload<>(&QWidget::update));
+    auto *cacheRefresh = new QTimer(this);
+    cacheRefresh->setInterval(1000);
+    connect(cacheRefresh, &QTimer::timeout, timeline_->viewport(), qOverload<>(&QWidget::update));
+    cacheRefresh->start();
+    layout->addWidget(timeline_, 1);
+    connect(snap, &QCheckBox::toggled, timeline_, &Timeline::setSnapping);
+    connect(zoom, &QSlider::valueChanged, this,
+            [this](int value) { timeline_->setZoom(2 * std::pow(600.0, value / 100.0)); });
+    connect(timeline_, &Timeline::zoomChanged, this, [zoom](double value) {
+        QSignalBlocker block(zoom);
+        zoom->setValue(static_cast<int>(std::lround(100 * std::log(value / 2) / std::log(600.0))));
+    });
+    connect(timeline_, &Timeline::editRequested, this, &Window::editAtRevision);
+    connect(timeline_, &Timeline::rejected, this, &Window::report);
+    connect(timeline_, &Timeline::gestureStarted, this, [this] {
+        if (transport_.playing())
+            transport_.pause();
+    });
+    connect(timeline_, &Timeline::playRequested, play_, &QPushButton::click);
+    connect(timeline_, &Timeline::stepRequested, this,
+            [this](int direction) { transport_.step(direction); });
     connect(timeline_, &Timeline::selected, this, &Window::selectClip);
     connect(timeline_, &Timeline::sought, this,
             [this](RationalTime time) { transport_.seek(std::min(time, transport_.duration())); });
@@ -499,6 +474,7 @@ void Window::refresh() {
                    " — Agentic NLE");
     const auto oldMedia =
         library_->currentItem() ? library_->currentItem()->data(Qt::UserRole).toULongLong() : 0;
+    const QSignalBlocker librarySignals(library_);
     library_->clear();
     for (const auto &asset : project.media) {
         auto *item =
@@ -530,10 +506,12 @@ void Window::refresh() {
             sequence_ = project.sequences.empty() ? SequenceId{} : project.sequences.front().id;
         sequences_->setCurrentIndex(active);
     }
+    refreshSourceSelection();
     undo_->setEnabled(editor_->can_undo());
     redo_->setEnabled(editor_->can_redo());
     cancelImport_->setEnabled(watcher_.isRunning());
     refreshInspector();
+    mediaCache_->synchronize(project);
     timeline_->display(project, sequence_, selected_);
     try {
         auto plan = sequence_.value ? playback::make_sequence_plan(project, sequence_)
@@ -556,6 +534,62 @@ void Window::edit(const Command &command, const std::string &label) {
         transport_.pause();
         editor_->execute(command,
                          {{{"human:desktop"}, ActorKind::Human}, label, editor_->revision()});
+        refresh();
+    } catch (const std::exception &e) {
+        report(e.what());
+    }
+}
+void Window::refreshSourceSelection() {
+    if (!library_->currentItem())
+        return;
+    const MediaId id{library_->currentItem()->data(Qt::UserRole).toULongLong()};
+    if (sourceSelected_ == id)
+        return;
+    sourceSelected_ = id;
+    for (const auto &asset : editor_->snapshot().media)
+        if (asset.id == id) {
+            sourceIn_->setText("0");
+            sourceOut_->setText(timeText(asset.duration));
+            return;
+        }
+}
+TimeRange Window::selectedSourceRange(const MediaAsset &asset) const {
+    const auto in = parseTime(sourceIn_->text()), out = parseTime(sourceOut_->text());
+    if (out <= in || out > asset.duration)
+        throw DomainError("Source out must follow source in and stay within the media duration.");
+    return {in, out - in};
+}
+QByteArray Window::mediaDragPayload() {
+    try {
+        if (!library_->currentItem())
+            return {};
+        const auto project = editor_->snapshot();
+        const MediaId id{library_->currentItem()->data(Qt::UserRole).toULongLong()};
+        for (const auto &asset : project.media)
+            if (asset.id == id) {
+                const auto range = selectedSourceRange(asset);
+                return QJsonDocument(
+                           QJsonObject{{"project", QString::number(project.id.value)},
+                                       {"revision", QString::number(project.revision)},
+                                       {"media", QString::number(id.value)},
+                                       {"in_value", QString::number(range.start.value())},
+                                       {"in_rate", QString::number(range.start.rate())},
+                                       {"duration_value", QString::number(range.duration.value())},
+                                       {"duration_rate", QString::number(range.duration.rate())}})
+                    .toJson(QJsonDocument::Compact);
+            }
+    } catch (const std::exception &e) {
+        report(e.what());
+    }
+    return {};
+}
+void Window::editAtRevision(const Command &command, std::uint64_t revision, const QString &label) {
+    try {
+        transport_.cancel();
+        const auto result = editor_->execute(
+            command, {{{"human:desktop"}, ActorKind::Human}, label.toStdString(), revision});
+        if (result.clip)
+            selected_ = *result.clip;
         refresh();
     } catch (const std::exception &e) {
         report(e.what());
@@ -683,6 +717,7 @@ void Window::openDocument(const QString &path, RecoveryChoice choice, bool draft
     path_ = draft ? QString{} : path;
     sequence_ = {};
     selected_ = {};
+    sourceSelected_ = {};
     refresh();
     if (pending.project && choice == RecoveryChoice::Recover)
         report("Recovered unsaved work. Save the project to keep this version.");
@@ -789,7 +824,7 @@ void Window::appendSelected() {
                 *batch.execute(CreateTrack{sequence, kind, kind == TrackKind::Video ? "V1" : "A1"})
                      .track;
         const auto clip =
-            *batch.execute(InsertClip{track, id, position, {{}, asset->duration}}).clip;
+            *batch.execute(InsertClip{track, id, position, selectedSourceRange(*asset)}).clip;
         editor_->commit(std::move(batch));
         sequence_ = sequence;
         selected_ = clip;

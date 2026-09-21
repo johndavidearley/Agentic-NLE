@@ -1,5 +1,6 @@
 #pragma once
 #include "commands/editor.hpp"
+#include "desktop/timeline.hpp"
 #include "desktop/transport.hpp"
 #include "media/probe.hpp"
 #include "project/document.hpp"
@@ -14,30 +15,6 @@
 #include <QTimer>
 #include <atomic>
 namespace nle::desktop {
-class Timeline : public QWidget {
-    Q_OBJECT
-  public:
-    explicit Timeline(QWidget *parent = nullptr) : QWidget(parent) { setMinimumHeight(200); }
-    void display(ProjectSnapshot project, SequenceId sequence, ClipId selected);
-    void setPosition(RationalTime position) {
-        position_ = position;
-        update();
-    }
-  signals:
-    void selected(ClipId clip);
-    void sought(RationalTime position);
-
-  protected:
-    void paintEvent(QPaintEvent *) override;
-    void mousePressEvent(QMouseEvent *event) override;
-
-  private:
-    ProjectSnapshot project_{};
-    SequenceId sequence_{};
-    ClipId selected_{};
-    RationalTime position_{};
-    double scale() const;
-};
 struct ImportResult {
     std::optional<media::ProbeResult> result;
     QString error;
@@ -65,6 +42,11 @@ class Window : public QMainWindow {
   private:
     void placeSelected();
     void playbackSettings();
+    void sequenceSettings();
+    void refreshSourceSelection();
+    TimeRange selectedSourceRange(const MediaAsset &asset) const;
+    QByteArray mediaDragPayload();
+    void editAtRevision(const Command &command, std::uint64_t revision, const QString &label);
     void refresh();
     void refreshInspector();
     void selectClip(ClipId id);
@@ -84,7 +66,10 @@ class Window : public QMainWindow {
     QString path_, ffprobe_;
     Transport transport_;
     Timeline *timeline_;
-    QListWidget *library_;
+    MediaCache *mediaCache_;
+    MediaLibrary *library_;
+    QLineEdit *sourceIn_, *sourceOut_;
+    MediaId sourceSelected_{};
     QLabel *preview_, *clock_, *notice_, *sourceInfo_, *transportInfo_;
     QComboBox *sequences_;
     QSlider *scrub_;

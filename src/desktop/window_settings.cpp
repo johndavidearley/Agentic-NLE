@@ -58,7 +58,9 @@ void Window::placeSelected() {
                     if (supports(asset->kind, track.kind))
                         target.addItem(QString::fromStdString(track.name),
                                        QVariant::fromValue<qulonglong>(track.id.value));
-        QLineEdit at(text(transport_.position())), source("0"), duration(text(asset->duration));
+        const auto range = selectedSourceRange(*asset);
+        QLineEdit at(text(transport_.position())), source(text(range.start)),
+            duration(text(range.duration));
         at.setObjectName("placementPosition");
         source.setObjectName("placementSource");
         duration.setObjectName("placementDuration");
@@ -198,6 +200,55 @@ void Window::playbackSettings() {
         (void)batch.execute(SetClipRouting{clip->id, {route(video), route(audio)}});
         editor_->commit(std::move(batch));
         refresh();
+    } catch (const std::exception &e) {
+        report(e.what());
+    }
+}
+void Window::sequenceSettings() {
+    try {
+        const auto before = editor_->snapshot();
+        const auto it = std::find_if(before.sequences.begin(), before.sequences.end(),
+                                     [this](const auto &s) { return s.id == sequence_; });
+        if (it == before.sequences.end()) {
+            report("Create a sequence by placing media first.");
+            return;
+        }
+        QDialog dialog(this);
+        dialog.setWindowTitle("Sequence output");
+        dialog.setObjectName("sequenceSettingsDialog");
+        QFormLayout form(&dialog);
+        QSpinBox width, height;
+        width.setObjectName("sequenceWidth");
+        height.setObjectName("sequenceHeight");
+        width.setRange(2, 3840);
+        height.setRange(2, 2160);
+        width.setSingleStep(2);
+        height.setSingleStep(2);
+        width.setValue(static_cast<int>(it->output.width));
+        height.setValue(static_cast<int>(it->output.height));
+        QComboBox fps;
+        fps.setObjectName("sequenceFps");
+        fps.setEditable(true);
+        fps.addItems({"24", "25", "30000/1001", "30", "60000/1001", "60"});
+        fps.setCurrentText(text({it->frame_duration.rate(), it->frame_duration.value()}));
+        form.addRow("Width", &width);
+        form.addRow("Height", &height);
+        form.addRow("Frames per second", &fps);
+        auto *hint = new QLabel("SDR, square pixels, 48 kHz stereo. Use an exact rate such as "
+                                "30000/1001. Existing clip positions stay unchanged.");
+        hint->setWordWrap(true);
+        form.addRow(hint);
+        buttons(dialog, form);
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+        const auto rate = time(fps.currentText());
+        if (rate < RationalTime{1} || rate > RationalTime{60})
+            throw DomainError("Choose an output rate from 1 to 60 fps.");
+        editAtRevision(SetSequenceOutput{sequence_,
+                                         {rate.rate(), rate.value()},
+                                         {static_cast<std::uint32_t>(width.value()),
+                                          static_cast<std::uint32_t>(height.value()), 48000, 2}},
+                       before.revision, "Sequence output settings");
     } catch (const std::exception &e) {
         report(e.what());
     }
