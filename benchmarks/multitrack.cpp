@@ -205,9 +205,9 @@ QJsonObject native_run(const std::filesystem::path &root, const std::filesystem:
                 ++dropped;
             maximum_pts_error =
                 std::max(maximum_pts_error, std::abs(chunk.video.pts_us - chunk.expected_pts));
-            if (chunk.expected_pts < 0 && std::any_of(
-                                              chunk.video.rgb.begin(), chunk.video.rgb.end(),
-                                              [](auto value) { return value != 0; }))
+            if (chunk.expected_pts < 0 &&
+                std::any_of(chunk.video.rgb.begin(), chunk.video.rgb.end(),
+                            [](auto value) { return value != 0; }))
                 ++reference_errors;
         }
     }
