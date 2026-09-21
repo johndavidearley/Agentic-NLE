@@ -1,4 +1,6 @@
 #pragma once
+// Route FFmpeg includes through this wrapper so the prepared SDK headers can be forced ahead of
+// ambient system installs while still treating the external headers as system headers for warnings.
 #ifdef __clang__
 #pragma clang system_header
 #elif defined(__GNUC__)
