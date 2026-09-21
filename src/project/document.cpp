@@ -65,7 +65,7 @@ DocumentFile::DocumentFile(std::filesystem::path path, bool writable, bool allow
                 throw FileError("project_locked", "Cannot safely acquire the project lock.");
 #else
             lock_ = ::open(sidecar.c_str(), O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0600);
-            struct stat information {};
+            struct stat information{};
             if (lock_ < 0 || ::fstat(lock_, &information) != 0 || !S_ISREG(information.st_mode) ||
                 ::flock(lock_, LOCK_EX | LOCK_NB) != 0)
                 throw FileError(
