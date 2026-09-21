@@ -1,13 +1,5 @@
+#include "decode/ffmpeg_headers.hpp"
 #include "multitrack_decode.hpp"
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavutil/channel_layout.h>
-#include <libavutil/error.h>
-#include <libavutil/version.h>
-#include <libswresample/swresample.h>
-#include <libswscale/swscale.h>
-}
 #include <algorithm>
 #include <chrono>
 #include <limits>

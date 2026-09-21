@@ -71,14 +71,18 @@ if os.name == 'nt':
         definition.write_text(f'LIBRARY {dll.name}\nEXPORTS\n'+'\n'.join(symbols)+'\n', encoding='ascii')
         subprocess.run([tool, '/nologo', '/machine:x64', f'/def:{definition}', f'/out:{lib/name}.lib'], check=True)
 else:
+    def link(path: Path, target: Path):
+        if path.is_symlink() and path.resolve() == target.resolve():
+            return
+        if path.exists() or path.is_symlink():
+            raise SystemExit(f'Refusing to replace existing {path}')
+        path.symlink_to(target.resolve())
+
     for name, major in components.items():
         runtime = qt/'lib'/(f'lib{name}.{major}.dylib' if platform.system() == 'Darwin' else f'lib{name}.so.{major}')
         if not runtime.is_file():
             raise SystemExit(f'Missing matching Qt FFmpeg runtime: {runtime}')
-        target = lib/(f'lib{name}.dylib' if platform.system() == 'Darwin' else f'lib{name}.so')
-        if target.is_symlink() and target.resolve() == runtime.resolve():
-            continue
-        if target.exists() or target.is_symlink():
-            raise SystemExit(f'Refusing to replace existing {target}')
-        target.symlink_to(runtime.resolve())
+        link(lib/runtime.name, runtime)
+        link(lib/(f'lib{name}.dylib' if platform.system() == 'Darwin' else f'lib{name}.so'),
+             runtime)
 print(f'Use -DNLE_FFMPEG_ROOT="{output}". Runtime libraries remain in the Qt SDK.')
