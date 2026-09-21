@@ -1,7 +1,8 @@
 # Milestone 8 production playback evaluation
 
 Windows local acceptance passed on 2026-09-18, including the ten-minute production run.
-Milestone 8 platform CI remains pending; do not infer a Linux/macOS pass from this result.
+Milestone 8 platform CI passed on 2026-09-21; [separate platform evidence](desktop-ci-evaluation.md)
+records Windows, Linux and both macOS architectures.
 The [prototype comparison](multitrack-prototype.md) selected the backend before integration;
 its measurements are separate from the production results below.
 
@@ -37,7 +38,7 @@ available-device check passed using silent PCM through the real QAudioSink. Afte
 run, Qt boundary integer conversions were made explicit for LP64 Linux/macOS compilers;
 these preserve Windows types and behavior. The affected playback/supervision tests passed
 again on that final source in Debug and Release (4/4 each, including corpus setup).
-New platform CI configuration is prepared but unexecuted.
+The later [platform follow-up](desktop-ci-evaluation.md) passed all 28 CI jobs at 3323cea.
 
 ## Configuration and method
 

@@ -1,0 +1,424 @@
+{
+  "milestones": [
+    8,
+    9
+  ],
+  "tested_commit": "3323cea28878f2d6c4561244ce51e686b7c5bd89",
+  "workflow_url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717",
+  "created_at": "2026-09-21T11:44:28Z",
+  "updated_at": "2026-09-21T11:51:47Z",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "build (macos-15, Debug, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774511"
+    },
+    {
+      "name": "build (macos-15, Release, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774418"
+    },
+    {
+      "name": "build (macos-15-intel, Debug, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774576"
+    },
+    {
+      "name": "build (macos-15-intel, Release, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774619"
+    },
+    {
+      "name": "build (ubuntu-24.04, Debug, clang)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774706"
+    },
+    {
+      "name": "build (ubuntu-24.04, Debug, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774530"
+    },
+    {
+      "name": "build (ubuntu-24.04, Release, clang)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774722"
+    },
+    {
+      "name": "build (ubuntu-24.04, Release, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774681"
+    },
+    {
+      "name": "build (windows-2022, Debug, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774560"
+    },
+    {
+      "name": "build (windows-2022, Release, default)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774541"
+    },
+    {
+      "name": "desktop (macos-15, mac, clang_64)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774477"
+    },
+    {
+      "name": "desktop (macos-15-intel, mac, clang_64)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774595"
+    },
+    {
+      "name": "desktop (ubuntu-24.04, linux, linux_gcc_64)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774437"
+    },
+    {
+      "name": "desktop (windows-2022, windows, win64_msvc2022_64)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774692"
+    },
+    {
+      "name": "format",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774392"
+    },
+    {
+      "name": "mcp (macos-15, Debug)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774505"
+    },
+    {
+      "name": "mcp (macos-15, Release)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774654"
+    },
+    {
+      "name": "mcp (macos-15-intel, Debug)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774638"
+    },
+    {
+      "name": "mcp (macos-15-intel, Release)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774643"
+    },
+    {
+      "name": "mcp (ubuntu-24.04, Debug)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774620"
+    },
+    {
+      "name": "mcp (ubuntu-24.04, Release)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774573"
+    },
+    {
+      "name": "mcp (windows-2022, Debug)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774451"
+    },
+    {
+      "name": "mcp (windows-2022, Release)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774594"
+    },
+    {
+      "name": "media-integration (macos-15)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774396"
+    },
+    {
+      "name": "media-integration (macos-15-intel)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774488"
+    },
+    {
+      "name": "media-integration (ubuntu-24.04)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774357"
+    },
+    {
+      "name": "media-integration (windows-2022)",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774479"
+    },
+    {
+      "name": "sanitizers",
+      "conclusion": "success",
+      "url": "https://github.com/johndavidearley/Agentic-NLE/actions/runs/35595674717/job/106319774179"
+    }
+  ],
+  "desktop": {
+    "windows-2022": {
+      "desktop_tests_passed": 47,
+      "multitrack": {
+        "audio_max_sample_error": 0,
+        "av_delivery_drift_ms": 0.5322955555556454,
+        "backend": "sequence-worker",
+        "black_errors": 0,
+        "cancel_ms": 3,
+        "duration_seconds": 12,
+        "early_av_pairs": 90,
+        "first_delivery_lateness_ms": 2.4602,
+        "frame_errors": 0,
+        "initial_ready_ms": 402,
+        "last_delivery_lateness_ms": 4.042300000000978,
+        "late_av_pairs": 90,
+        "passed": true,
+        "presentation_drift_ms": 1.582100000000978,
+        "seek_p95_ms": 529,
+        "worker": {
+          "dropped": 0,
+          "first_lateness_us": 1012,
+          "frames": 361,
+          "last_lateness_us": 1796,
+          "late_frames": [],
+          "max_encode_us": 7839,
+          "max_tick_gap_us": 3237,
+          "queue_peak_bytes": 602398,
+          "type": "ended",
+          "underruns": 0
+        }
+      },
+      "timeline": [
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 2.1912,
+          "gesture_p50_ms": 1.7018,
+          "gesture_p95_ms": 2.0059,
+          "iterations": 120,
+          "press_ms": 0.3579,
+          "rejections": 5,
+          "scale": 1
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 2.7616,
+          "gesture_p50_ms": 2.3786,
+          "gesture_p95_ms": 2.5887,
+          "iterations": 120,
+          "press_ms": 0.3007,
+          "rejections": 5,
+          "scale": 1.5
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 3.2496,
+          "gesture_p50_ms": 2.8641,
+          "gesture_p95_ms": 3.1616,
+          "iterations": 120,
+          "press_ms": 0.3639,
+          "rejections": 5,
+          "scale": 2
+        }
+      ]
+    },
+    "ubuntu-24.04": {
+      "desktop_tests_passed": 47,
+      "multitrack": {
+        "audio_max_sample_error": 0,
+        "av_delivery_drift_ms": 0.25334012222223623,
+        "backend": "sequence-worker",
+        "black_errors": 0,
+        "cancel_ms": 3,
+        "duration_seconds": 12,
+        "early_av_pairs": 90,
+        "first_delivery_lateness_ms": 2.320635,
+        "frame_errors": 0,
+        "initial_ready_ms": 320,
+        "last_delivery_lateness_ms": 2.248160999999527,
+        "late_av_pairs": 90,
+        "passed": true,
+        "presentation_drift_ms": 0.07247400000047266,
+        "seek_p95_ms": 445,
+        "worker": {
+          "dropped": 0,
+          "first_lateness_us": 1115,
+          "frames": 361,
+          "last_lateness_us": 1855,
+          "late_frames": [],
+          "max_encode_us": 8037,
+          "max_tick_gap_us": 3605,
+          "queue_peak_bytes": 602398,
+          "type": "ended",
+          "underruns": 0
+        }
+      },
+      "timeline": [
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 1.857429,
+          "gesture_p50_ms": 1.413323,
+          "gesture_p95_ms": 1.693922,
+          "iterations": 120,
+          "press_ms": 0.287973,
+          "rejections": 5,
+          "scale": 1
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 2.355368,
+          "gesture_p50_ms": 1.925267,
+          "gesture_p95_ms": 2.220493,
+          "iterations": 120,
+          "press_ms": 0.238429,
+          "rejections": 5,
+          "scale": 1.5
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 3.171826,
+          "gesture_p50_ms": 2.506122,
+          "gesture_p95_ms": 3.004921,
+          "iterations": 120,
+          "press_ms": 0.21223,
+          "rejections": 5,
+          "scale": 2
+        }
+      ]
+    },
+    "macos-15": {
+      "desktop_tests_passed": 47,
+      "multitrack": {
+        "audio_max_sample_error": 0,
+        "av_delivery_drift_ms": 1.9240412333333299,
+        "backend": "sequence-worker",
+        "black_errors": 0,
+        "cancel_ms": 5,
+        "duration_seconds": 12,
+        "early_av_pairs": 90,
+        "first_delivery_lateness_ms": 8.250959,
+        "frame_errors": 0,
+        "initial_ready_ms": 329,
+        "last_delivery_lateness_ms": 1.951958999999988,
+        "late_av_pairs": 90,
+        "passed": true,
+        "presentation_drift_ms": 6.299000000000012,
+        "seek_p95_ms": 335,
+        "worker": {
+          "dropped": 0,
+          "first_lateness_us": 2367,
+          "frames": 361,
+          "last_lateness_us": 1573,
+          "late_frames": [],
+          "max_encode_us": 12888,
+          "max_tick_gap_us": 5087,
+          "queue_peak_bytes": 601970,
+          "type": "ended",
+          "underruns": 0
+        }
+      },
+      "timeline": [
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 1.761625,
+          "gesture_p50_ms": 0.739833,
+          "gesture_p95_ms": 1.26175,
+          "iterations": 120,
+          "press_ms": 0.130208,
+          "rejections": 5,
+          "scale": 1
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 2.586292,
+          "gesture_p50_ms": 1.778625,
+          "gesture_p95_ms": 2.241792,
+          "iterations": 120,
+          "press_ms": 0.152333,
+          "rejections": 5,
+          "scale": 1.5
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 3.455625,
+          "gesture_p50_ms": 2.711625,
+          "gesture_p95_ms": 3.21625,
+          "iterations": 120,
+          "press_ms": 0.163458,
+          "rejections": 5,
+          "scale": 2
+        }
+      ]
+    },
+    "macos-15-intel": {
+      "desktop_tests_passed": 47,
+      "multitrack": {
+        "audio_max_sample_error": 0,
+        "av_delivery_drift_ms": 1.011811999999896,
+        "backend": "sequence-worker",
+        "black_errors": 0,
+        "cancel_ms": 8,
+        "duration_seconds": 12,
+        "early_av_pairs": 90,
+        "first_delivery_lateness_ms": 2.801109,
+        "frame_errors": 0,
+        "initial_ready_ms": 509,
+        "last_delivery_lateness_ms": 1.7023630000003322,
+        "late_av_pairs": 90,
+        "passed": true,
+        "presentation_drift_ms": 1.0987459999996676,
+        "seek_p95_ms": 634,
+        "worker": {
+          "dropped": 0,
+          "first_lateness_us": 1335,
+          "frames": 361,
+          "last_lateness_us": 309,
+          "late_frames": [],
+          "max_encode_us": 37002,
+          "max_tick_gap_us": 14672,
+          "queue_peak_bytes": 602398,
+          "type": "ended",
+          "underruns": 0
+        }
+      },
+      "timeline": [
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 33.449537,
+          "gesture_p50_ms": 4.126983,
+          "gesture_p95_ms": 10.29806,
+          "iterations": 120,
+          "press_ms": 0.638788,
+          "rejections": 5,
+          "scale": 1
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 7.833565,
+          "gesture_p50_ms": 6.503321,
+          "gesture_p95_ms": 7.441984,
+          "iterations": 120,
+          "press_ms": 0.453211,
+          "rejections": 5,
+          "scale": 1.5
+        },
+        {
+          "clips": 1000,
+          "commits": 6,
+          "gesture_max_ms": 10.443313,
+          "gesture_p50_ms": 7.559915,
+          "gesture_p95_ms": 9.354498,
+          "iterations": 120,
+          "press_ms": 0.657102,
+          "rejections": 5,
+          "scale": 2
+        }
+      ]
+    }
+  },
+  "scope": "Release desktop tests use synthetic media and inaudible playback; the 12-second CI playback checks do not replace the previously recorded ten-minute Windows acceptance run or measure physical speaker/display sync."
+}

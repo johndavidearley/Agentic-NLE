@@ -105,15 +105,15 @@ media import, remote transport and concurrent desktop/server editing remain sepa
 
 ## Planned next phase — a usable editing workflow
 
-Proposed 2026-09-15; Milestone 7 completed 2026-09-16. Milestones 8 and 9 have local implementations; platform validation remains separate. The recommended sequence first completes
+Proposed 2026-09-15; Milestone 7 completed 2026-09-16. Milestones 8 and 9 completed platform validation on 2026-09-21. The recommended sequence first completes
 human editing and export, then integrates agent media preparation and the open desktop session.
 See [the detailed plan](next-milestones.md) for scope, dependencies, acceptance tests and limits.
 
 | Milestone | Main outcome | Status |
 | --- | --- | --- |
 | 7 — Reliable Projects and Recovery | Verified platform baseline, coordinated saves and recoverable desktop work | Complete |
-| 8 — Multi-track Playback | B-roll, dialogue and music play together with defined routing and timing | Local acceptance passed; platform CI pending |
-| 9 — Practical Timeline Editing | Zoom, scroll, drag, trim, snap, thumbnails and waveforms | Local acceptance passed; platform CI pending |
+| 8 — Multi-track Playback | B-roll, dialogue and music play together with defined routing and timing | Complete |
+| 9 — Practical Timeline Editing | Zoom, scroll, drag, trim, snap, thumbnails and waveforms | Complete |
 | 10 — Export a Finished Video | A validated output file matching the supported sequence | Planned |
 | 11 — Agent Media Preparation | Approved import/relink and observable export jobs through MCP | Planned |
 | 12 — Shared Human and Agent Editing | One live project, visible proposals and one undo history | Planned |
@@ -123,7 +123,7 @@ Milestone 7 is complete: protected document saves, bounded recovery checkpoints 
 recovery choices are verified with process termination, corrupt-checkpoint fallback and
 conflicting writers. All 28 platform CI jobs passed on `b2978a0`. See
 [recovery behavior](project-recovery.md) and [validation results](recovery-evaluation.md). Milestone 8 passed its prototype and ten-minute Windows production acceptance;
-[results](multitrack-evaluation.md) record the unchanged targets, tests and pending platform CI. Milestone 10 completes the first
+[results](multitrack-evaluation.md) record the unchanged targets and tests. Milestones 8 and 9 also passed all 28 jobs in the [platform follow-up](desktop-ci-evaluation.md). Milestone 10 completes the first
 human import/edit/export workflow; Milestone 12 completes the shared local agent workflow.
 Milestone 9 [editing controls](timeline-editing.md) and [acceptance evidence](timeline-evaluation.md)
 cover provisional gestures, bounded caches and the two-minute reference workflow.

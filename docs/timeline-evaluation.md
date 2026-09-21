@@ -1,6 +1,7 @@
 # Milestone 9 timeline evaluation
 
-Status: Windows local acceptance passed on 2026-09-20. Platform CI remains pending.
+Status: complete. Windows local acceptance passed on 2026-09-20; all 28 jobs in the
+[platform follow-up](desktop-ci-evaluation.md) passed on 2026-09-21.
 The preceding Milestone 8 baseline is commit 17a4a61, with its prototype and ten-minute
 production acceptance recorded in [multitrack validation](multitrack-evaluation.md).
 The recorded source hashes identify the locally tested Milestone 9 implementation.
@@ -90,6 +91,7 @@ The detailed test/fixture definitions are in CMakeLists.txt.
 No new dependency or native-format migration is introduced. The core/MCP command
 boundary remains the editing authority. Cache TTL/source-identity limits, the
 24-hour preview profile and unsupported advanced editing operations are documented
-in [timeline editing](timeline-editing.md). Linux, macOS Apple Silicon and Intel,
-and fresh Windows CI results have not been observed for this change. The milestone
-is locally accepted; cross-platform completion remains pending.
+in [timeline editing](timeline-editing.md). Fresh Windows, Linux, macOS Apple Silicon
+and Intel CI passed at 3323cea. [Saved platform evidence](desktop-ci-results.json)
+records all job results, the four playback reports and timeline measurements at all
+three display scales. CI timing observations do not replace the fixed-host local target.

@@ -6,12 +6,13 @@ Desktop, CLI and MCP share protected saves; desktop drafts and opt-in MCP checkp
 can recover interrupted work. [Validation](docs/recovery-evaluation.md) records all 28 passing
 CI jobs on Windows, Linux and both macOS architectures.
 Milestone 8 multi-track playback passes Windows local acceptance, including its ten-minute
-production test. [Results and limits](docs/multitrack-evaluation.md) are recorded; new
-Windows/Linux/macOS CI validation remains pending.
+production test. [Results and limits](docs/multitrack-evaluation.md) are recorded.
+[Platform validation](docs/desktop-ci-evaluation.md) passed all 28 CI jobs on Windows,
+Linux and both macOS architectures on 2026-09-21, completing Milestones 8 and 9.
 Milestone 9 adds [practical timeline editing](docs/timeline-editing.md): zoom/scroll,
 provisional drag/trim with snapping, keyboard editing, source in/out selection, sequence
 settings and bounded background thumbnails/waveforms. [Validation](docs/timeline-evaluation.md)
-records the local acceptance work and remaining platform checks.
+records the local acceptance work and passing platform checks.
 An optional Qt desktop imports media, previews a sequence, and provides command-based
 trim, position, split, delete and undo/redo controls, plus deliberate track placement, gain,
 mute and stream routing. Exact paused seeks and shared source clocks preserve frame selection
