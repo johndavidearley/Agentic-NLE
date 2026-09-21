@@ -126,8 +126,9 @@ std::string run_process(const std::filesystem::path &requested,
     if (!CreatePipe(&reader.value, &writer.value, &security, 0) ||
         !SetHandleInformation(reader.value, HANDLE_FLAG_INHERIT, 0))
         throw DomainError("cannot create probe pipe");
-    input.value = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &security,
-                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    input.value =
+        CreateFileW(L"NUL", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    &security, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     job.value = CreateJobObjectW(nullptr, nullptr);
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
     limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
@@ -160,7 +161,8 @@ std::string run_process(const std::filesystem::path &requested,
     startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
     startup.StartupInfo.hStdInput = input.value;
     startup.StartupInfo.hStdOutput = writer.value;
-    startup.StartupInfo.hStdError = writer.value;
+    startup.StartupInfo.hStdError =
+        options.stderr_mode == StderrMode::Merge ? writer.value : input.value;
     startup.lpAttributeList = attributes;
     PROCESS_INFORMATION info{};
     if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, TRUE,
@@ -241,7 +243,10 @@ std::string run_process(const std::filesystem::path &requested,
     };
     if (posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0) != 0 ||
         posix_spawn_file_actions_adddup2(&actions, writer.value, STDOUT_FILENO) != 0 ||
-        posix_spawn_file_actions_adddup2(&actions, writer.value, STDERR_FILENO) != 0 ||
+        (options.stderr_mode == StderrMode::Merge
+             ? posix_spawn_file_actions_adddup2(&actions, writer.value, STDERR_FILENO)
+             : posix_spawn_file_actions_addopen(&actions, STDERR_FILENO, "/dev/null", O_WRONLY,
+                                                0)) != 0 ||
         posix_spawn_file_actions_addclose(&actions, reader.value) != 0 ||
         posix_spawn_file_actions_addclose(&actions, writer.value) != 0 ||
         posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETPGROUP) != 0 ||

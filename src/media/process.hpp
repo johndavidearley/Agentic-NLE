@@ -8,10 +8,13 @@
 #include <string>
 #include <vector>
 namespace nle::media {
+enum class StderrMode { Merge, Discard };
 struct ProcessOptions {
     std::chrono::milliseconds timeout{30000};
     std::size_t max_output = 1024 * 1024;
     std::optional<std::reference_wrapper<const std::atomic_bool>> stop{};
+    // Structured stdout protocols must not include library diagnostics from stderr.
+    StderrMode stderr_mode = StderrMode::Merge;
 };
 std::string run_process(const std::filesystem::path &executable,
                         const std::vector<std::string> &arguments, ProcessOptions options = {});

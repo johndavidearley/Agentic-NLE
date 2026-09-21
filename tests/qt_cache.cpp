@@ -51,10 +51,16 @@ int main(int argc, char **argv) {
         QTimer heartbeat;
         QObject::connect(&heartbeat, &QTimer::timeout, &app, [&] { ++ticks; });
         heartbeat.start(5);
+        // Qt plugin diagnostics on stderr must not contaminate the JSON response.
+        const auto previousDiagnostics = qgetenv("QT_DEBUG_PLUGINS");
+        qputenv("QT_DEBUG_PLUGINS", "1");
         cache.request(audio, 0, true, {});
         cache.request(video, 0, false, {});
         CHECK(waitFor([&] { return cache.pending() == 0; }));
+        qputenv("QT_DEBUG_PLUGINS", previousDiagnostics);
         const auto *wave = cache.request(audio, 0, true, {});
+        if (wave && !wave->error.isEmpty())
+            throw std::runtime_error("Waveform cache: " + wave->error.toStdString());
         CHECK(wave && wave->error.isEmpty() && wave->peaks.size() == 1000);
         const auto peaks = wave->peaks;
         // Independent PCM oracle, without the decoder or media cache.

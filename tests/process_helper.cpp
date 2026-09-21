@@ -20,6 +20,13 @@ int run(int argc, char **argv) {
     else if (mode == "fail") {
         std::cerr << "fixture failure";
         return 7;
+    } else if (mode == "json") {
+        std::cout << "{\"ok\":true}" << std::flush;
+        std::cerr << "library diagnostic\n";
+    } else if (mode == "stderr-flood") {
+        for (int i = 0; i < 100000; ++i)
+            std::cerr << 'x';
+        std::cout << "{\"ok\":true}";
     } else if (mode == "echo")
         for (int i = 2; i < argc; ++i)
             std::cout << argv[i] << '\n';

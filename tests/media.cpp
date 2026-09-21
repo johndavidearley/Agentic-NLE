@@ -131,6 +131,17 @@ void process(const std::filesystem::path &helper) {
           "\nwith spaces\nquote\"and\\\ncaf\xc3\xa9 & literal\n$(echo nope)\n");
     for (int i = 0; i < 20; ++i)
         CHECK(run_process(helper, {"echo", "last output"}) == "last output\n");
+    const auto combined = run_process(helper, {"json"});
+    CHECK(combined.find("{\"ok\":true}") != std::string::npos);
+    CHECK(combined.find("library diagnostic") != std::string::npos);
+    const ProcessOptions protocol{std::chrono::seconds(5), 128, {}, StderrMode::Discard};
+    CHECK(run_process(helper, {"json"}, protocol) == "{\"ok\":true}");
+    CHECK(run_process(helper, {"stderr-flood"}, protocol) == "{\"ok\":true}");
+    rejects([&] { (void)run_process(helper, {"fail"}, protocol); });
+    rejects([&] {
+        (void)run_process(helper, {"sleep"},
+                          {std::chrono::milliseconds(50), 128, {}, StderrMode::Discard});
+    });
     rejects([&] { (void)run_process(helper, {"fail"}); });
     rejects([&] { (void)run_process(helper, {"sleep"}, {std::chrono::milliseconds(50)}); });
     rejects([&] { (void)run_process(helper, {"flood"}, {std::chrono::seconds(5), 128}); });

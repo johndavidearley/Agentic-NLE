@@ -62,7 +62,9 @@ macOS CI uses the explicit macos-15 (Apple Silicon) and macos-15-intel runners.
 Both macOS architectures passed the Milestone 7 CI matrix; macOS was not executed locally
 from this Windows workspace.
 
-Warnings are errors. Formatting uses clang-format 19. Set
+Warnings are errors. Formatting uses clang-format 19; CI currently uses 19.1.1.
+Use the same patch version for identical output (the Visual Studio bundled 19.1.5
+formats some expressions differently). CI prints its version in the format job. Set
 -DCLANG_FORMAT=/path/to/clang-format when configuring if it is not on PATH,
 then build targets **format** or **format-check**.
 

@@ -86,12 +86,15 @@ int main(int argc, char **argv) {
     qint64 last_position = -1, last_tick = -1, max_tick_gap_us = 0;
     std::atomic<qint64> max_encode_us = 0;
     QJsonArray late_frames;
+    std::optional<qint64> first_lateness;
+    qint64 last_lateness = 0;
     const auto write = [&](const QByteArray &bytes) {
         if (socket.bytesToWrite() + bytes.size() > 4 * 1024 * 1024) {
             app.exit(3);
             return;
         }
         socket.write(bytes);
+        socket.flush();
     };
     const auto send = [&](QJsonObject msg) {
         write(QJsonDocument(msg).toJson(QJsonDocument::Compact) + '\n');
@@ -136,6 +139,12 @@ int main(int argc, char **argv) {
         if (socket.bytesToWrite() > 2 * 1024 * 1024) {
             ++dropped;
             return;
+        }
+        if (playing) {
+            const auto elapsed = sink ? sink->processedUSecs() : clock.nsecsElapsed() / 1000;
+            last_lateness = first_sample * 1000000 / 48000 + elapsed - us(p.position);
+            if (!first_lateness)
+                first_lateness = last_lateness;
         }
         write(p.message);
     };
@@ -376,6 +385,8 @@ int main(int argc, char **argv) {
                   {"dropped", static_cast<qint64>(dropped)},
                   {"frames", static_cast<qint64>(frames)},
                   {"max_tick_gap_us", max_tick_gap_us},
+                  {"first_lateness_us", first_lateness.value_or(0)},
+                  {"last_lateness_us", last_lateness},
                   {"max_encode_us", max_encode_us.load()},
                   {"late_frames", late_frames},
                   {"queue_peak_bytes", static_cast<qint64>(peak)}});

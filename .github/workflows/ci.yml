@@ -36,6 +36,7 @@ jobs:
       - run: sudo find /etc/apt/sources.list.d -maxdepth 1 -type f \( -name '*.list' -o -name '*.sources' \) -exec grep -l 'dl.google.com/linux/chrome' {} + | xargs -r sudo rm -f
       - run: sudo apt-get update
       - run: sudo apt-get install -y clang-format-19
+      - run: clang-format-19 --version
       - run: cmake -S . -B build -DCLANG_FORMAT=clang-format-19
       - run: cmake --build build --target format-check
 

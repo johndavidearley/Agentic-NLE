@@ -388,6 +388,8 @@ int main(int argc, char **argv) {
                            {"frame_errors", frame_errors},
                            {"black_errors", black_errors},
                            {"presentation_drift_ms", drift},
+                           {"first_delivery_lateness_ms", first_late},
+                           {"last_delivery_lateness_ms", last_late},
                            {"av_delivery_drift_ms", av_drift},
                            {"early_av_pairs", early_count},
                            {"late_av_pairs", late_count},

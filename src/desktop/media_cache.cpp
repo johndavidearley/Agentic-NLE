@@ -56,10 +56,10 @@ CacheData generate(const QString &worker, const MediaAsset &asset, ProjectId pro
         if (!input.open(QIODevice::WriteOnly) || input.write(bytes) != bytes.size())
             throw DomainError("Cannot write cache request");
         input.close();
-        const auto output =
-            media::run_process(media::utf8_path(worker.toStdString()),
-                               {media::path_utf8(media::utf8_path(path.toStdString()))},
-                               {std::chrono::seconds(8), 512 * 1024, std::cref(*stop)});
+        const auto output = media::run_process(
+            media::utf8_path(worker.toStdString()),
+            {media::path_utf8(media::utf8_path(path.toStdString()))},
+            {std::chrono::seconds(8), 512 * 1024, std::cref(*stop), media::StderrMode::Discard});
         const auto document = QJsonDocument::fromJson(QByteArray::fromStdString(output));
         if (!document.isObject())
             throw DomainError("Invalid derived-media response");
