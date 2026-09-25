@@ -13,7 +13,7 @@ struct Video {
 class Decoder {
   public:
     Decoder(const MediaAsset &asset, std::uint32_t stream, int width, int height,
-            std::atomic_bool &stop);
+            std::atomic_bool &stop, bool require_sdr_bt709 = false);
     ~Decoder();
     Decoder(const Decoder &) = delete;
     Decoder &operator=(const Decoder &) = delete;

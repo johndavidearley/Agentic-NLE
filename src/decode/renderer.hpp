@@ -15,12 +15,15 @@ struct Chunk {
     bool end = false;
     std::size_t bytes() const;
 };
+enum class RenderResolution { Preview, SequenceOutput };
 class Renderer {
   public:
-    Renderer(playback::SequencePlan plan, RationalTime start, std::atomic_bool &stop);
+    Renderer(playback::SequencePlan plan, RationalTime start, std::atomic_bool &stop,
+             RenderResolution resolution = RenderResolution::Preview);
     Chunk next();
     Picture poster(RationalTime time);
     const playback::SequencePlan &plan() const { return plan_; }
+    void validate_sources() const { check_sources(); }
 
   private:
     struct Slot {
@@ -39,6 +42,7 @@ class Renderer {
     std::vector<Identity> identities_;
     std::int64_t sample_ = 0, frame_ = 0;
     int width_ = 960, height_ = 540;
+    RenderResolution resolution_ = RenderResolution::Preview;
     unsigned blocks_ = 0;
     RationalTime frame_time() const;
     Decoder &decoder(const playback::Contribution &item, bool video);

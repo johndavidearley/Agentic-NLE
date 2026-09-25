@@ -56,7 +56,11 @@ if(NLE_BUILD_DESKTOP)
     add_custom_target(deploy-desktop
       COMMAND "${NLE_QT_BIN}/windeployqt.exe" --no-translations --no-compiler-runtime --include-plugins qoffscreen
         $<TARGET_FILE:editor-desktop> $<TARGET_FILE:nle-preview-worker> $<TARGET_FILE:nle-sequence-worker> $<TARGET_FILE:nle-cache-worker>
-      DEPENDS editor-desktop nle-preview-worker nle-sequence-worker nle-cache-worker VERBATIM)
+      COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${NLE_QT_BIN}/avformat-61.dll" "${NLE_QT_BIN}/avcodec-61.dll"
+        "${NLE_QT_BIN}/avutil-59.dll" "${NLE_QT_BIN}/swscale-8.dll"
+        "${NLE_QT_BIN}/swresample-5.dll" "$<TARGET_FILE_DIR:editor-desktop>"
+      DEPENDS editor-desktop editor-export nle-preview-worker nle-sequence-worker nle-cache-worker VERBATIM)
   endif()
 endif()
 option(NLE_MULTITRACK_PROTOTYPE "Build the Milestone 8 backend comparison (not desktop runtime)" OFF)
@@ -73,6 +77,12 @@ if(NLE_BUILD_DESKTOP OR NLE_MULTITRACK_PROTOTYPE)
     find_library(NLE_${component}_LIBRARY NAMES ${component} HINTS "${NLE_FFMPEG_ROOT}/lib" NO_DEFAULT_PATH REQUIRED)
     target_link_libraries(nle_decode PRIVATE "${NLE_${component}_LIBRARY}")
   endforeach()
+  add_library(nle_export src/export/export.cpp)
+  target_link_libraries(nle_export PUBLIC nle_decode)
+  target_include_directories(nle_export BEFORE PRIVATE "${NLE_AV_INCLUDE}")
+  target_link_libraries(nle_desktop PUBLIC nle_export)
+  add_executable(editor-export src/export/main.cpp)
+  target_link_libraries(editor-export PRIVATE nle_export)
   add_executable(nle-cache-worker src/desktop/cache_worker.cpp)
   target_link_libraries(nle-cache-worker PRIVATE nle_decode Qt6::Gui)
   add_dependencies(editor-desktop nle-cache-worker)
@@ -263,7 +273,7 @@ if(BUILD_TESTING)
   set_tests_properties(cli-demo PROPERTIES FIXTURES_SETUP demo)
   set_tests_properties(cli-inspect PROPERTIES FIXTURES_REQUIRED demo PASS_REGULAR_EXPRESSION "clips=2")
 endif()
-foreach(target nle-qt-cache-tests nle-qt-timeline-workflow-tests nle-timeline-edit-tests nle-qt-timeline-tests nle-cache-worker nle-sequence-supervision-tests nle-multitrack-tests nle-sequence-worker nle_decode nle-sequence-tests nle_prototype_decode nle-multitrack-prototype nle-qt-recovery-tests nle-document-tests nle_mcp editor-mcp nle-mcp-tests nle-qt-precision-tests nle-source-timing-tests nle-hanging-worker editor-desktop nle-qt-desktop-tests nle_playback nle_desktop nle-preview-worker nle-playback-tests nle-qt-playback-tests nle_core nle_media nle-media-tests nle-process-helper editor-cli nle-tests nle-session-tests nle-benchmark)
+foreach(target nle_export editor-export nle-qt-cache-tests nle-qt-timeline-workflow-tests nle-timeline-edit-tests nle-qt-timeline-tests nle-cache-worker nle-sequence-supervision-tests nle-multitrack-tests nle-sequence-worker nle_decode nle-sequence-tests nle_prototype_decode nle-multitrack-prototype nle-qt-recovery-tests nle-document-tests nle_mcp editor-mcp nle-mcp-tests nle-qt-precision-tests nle-source-timing-tests nle-hanging-worker editor-desktop nle-qt-desktop-tests nle_playback nle_desktop nle-preview-worker nle-playback-tests nle-qt-playback-tests nle_core nle_media nle-media-tests nle-process-helper editor-cli nle-tests nle-session-tests nle-benchmark)
   if(TARGET ${target})
     if(MSVC)
       target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8)

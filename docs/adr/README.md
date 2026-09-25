@@ -33,3 +33,5 @@ Milestone 5: [0011 Shared source origins and decoded frame lookup](0011-source-o
 - [0013: Shared document ownership and recovery checkpoints](0013-document-ownership-and-recovery.md)
 
 - [0014: Multi-track decoding backend](0014-multitrack-backend.md)
+
+- [0015: Fixed-revision local export](0015-local-export.md) — Windows synthetic acceptance passed; platform and failure gaps remain.

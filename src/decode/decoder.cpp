@@ -61,6 +61,7 @@ struct Decoder::State {
     std::uint32_t stream;
     int width, height;
     bool is_video = false, ended = false, flushing = false, have_next = false;
+    bool require_sdr_bt709 = false;
     SourceTime origin, next_pts;
     std::optional<SourceTime> current_pts;
     RationalTime stream_end;
@@ -177,8 +178,9 @@ struct Decoder::State {
     }
 };
 Decoder::Decoder(const MediaAsset &asset, std::uint32_t stream, int width, int height,
-                 std::atomic_bool &stop)
+                 std::atomic_bool &stop, bool require_sdr_bt709)
     : state_(std::make_unique<State>(asset, stream, width, height, stop)) {
+    state_->require_sdr_bt709 = require_sdr_bt709;
     auto &s = *state_;
     if ((avformat_version() >> 16) != 61 || (avcodec_version() >> 16) != 61 ||
         (avutil_version() >> 16) != 59 || (swscale_version() >> 16) != 8 ||
@@ -226,6 +228,12 @@ Decoder::Decoder(const MediaAsset &asset, std::uint32_t stream, int width, int h
             throw DomainError("Preview supports sources up to 1920x1080");
         if (p->color_trc == AVCOL_TRC_SMPTE2084 || p->color_trc == AVCOL_TRC_ARIB_STD_B67)
             throw DomainError("HDR preview is unsupported");
+        if (require_sdr_bt709 &&
+            ((p->color_primaries != AVCOL_PRI_UNSPECIFIED &&
+              p->color_primaries != AVCOL_PRI_BT709) ||
+             (p->color_trc != AVCOL_TRC_UNSPECIFIED && p->color_trc != AVCOL_TRC_BT709) ||
+             (p->color_space != AVCOL_SPC_UNSPECIFIED && p->color_space != AVCOL_SPC_BT709)))
+            throw DomainError("Export currently supports BT.709 SDR sources only");
         const auto *matrix = av_packet_side_data_get(p->coded_side_data, p->nb_coded_side_data,
                                                      AV_PKT_DATA_DISPLAYMATRIX);
         if (matrix && matrix->size >= 9 * sizeof(std::int32_t) &&
@@ -271,7 +279,7 @@ void Decoder::seek(RationalTime source) {
     const auto target = absolute(s.origin, preroll);
     // Negative indexed seeks can discard the initial packets in Matroska.
     if (target.negative() || preroll == RationalTime{}) {
-        Decoder reopened(s.asset, s.stream, s.width, s.height, s.stop);
+        Decoder reopened(s.asset, s.stream, s.width, s.height, s.stop, s.require_sdr_bt709);
         state_ = std::move(reopened.state_);
         return;
     }
@@ -310,7 +318,7 @@ Video Decoder::video(RationalTime source) {
     // Demuxer seek indexes may use DTS, landing after the requested PTS for
     // reordered pictures. Fall back to a bounded decode from the original prefix.
     if (!s.current_pts && s.have_next && s.next_pts > target && !s.from_start) {
-        Decoder reopened(s.asset, s.stream, s.width, s.height, s.stop);
+        Decoder reopened(s.asset, s.stream, s.width, s.height, s.stop, s.require_sdr_bt709);
         state_ = std::move(reopened.state_);
         return video(source);
     }
@@ -337,6 +345,19 @@ Video Decoder::video(RationalTime source) {
                  std::vector<std::uint8_t>(static_cast<std::size_t>(s.width * s.height * 3))};
     if (s.current->width != s.codec->width || s.current->height != s.codec->height)
         throw DomainError("Video dimensions changed within a stream");
+    if (s.require_sdr_bt709) {
+        const auto primaries = s.current->color_primaries != AVCOL_PRI_UNSPECIFIED
+                                   ? s.current->color_primaries
+                                   : s.codec->color_primaries;
+        const auto transfer = s.current->color_trc != AVCOL_TRC_UNSPECIFIED ? s.current->color_trc
+                                                                            : s.codec->color_trc;
+        const auto matrix = s.current->colorspace != AVCOL_SPC_UNSPECIFIED ? s.current->colorspace
+                                                                           : s.codec->colorspace;
+        if ((primaries != AVCOL_PRI_UNSPECIFIED && primaries != AVCOL_PRI_BT709) ||
+            (transfer != AVCOL_TRC_UNSPECIFIED && transfer != AVCOL_TRC_BT709) ||
+            (matrix != AVCOL_SPC_UNSPECIFIED && matrix != AVCOL_SPC_BT709))
+            throw DomainError("Export encountered a non-BT.709 source frame");
+    }
     auto sar = s.current->sample_aspect_ratio;
     if (sar.num <= 0 || sar.den <= 0)
         sar = {1, 1};
@@ -352,10 +373,12 @@ Video Decoder::video(RationalTime source) {
                                    AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
     if (!s.scale)
         throw DomainError("Cannot create scaler");
-    const int matrix = s.current->colorspace == AVCOL_SPC_BT709        ? SWS_CS_ITU709
-                       : s.current->colorspace == AVCOL_SPC_SMPTE240M  ? SWS_CS_SMPTE240M
-                       : s.current->colorspace == AVCOL_SPC_BT2020_NCL ? SWS_CS_BT2020
-                                                                       : SWS_CS_DEFAULT;
+    const int matrix =
+        s.current->colorspace == AVCOL_SPC_BT709 || s.current->colorspace == AVCOL_SPC_UNSPECIFIED
+            ? SWS_CS_ITU709
+        : s.current->colorspace == AVCOL_SPC_SMPTE240M  ? SWS_CS_SMPTE240M
+        : s.current->colorspace == AVCOL_SPC_BT2020_NCL ? SWS_CS_BT2020
+                                                        : SWS_CS_DEFAULT;
     const auto *coefficients = sws_getCoefficients(matrix);
     check(sws_setColorspaceDetails(s.scale, coefficients,
                                    s.current->color_range == AVCOL_RANGE_JPEG, coefficients, 1, 0,

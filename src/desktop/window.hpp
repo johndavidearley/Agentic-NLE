@@ -2,6 +2,7 @@
 #include "commands/editor.hpp"
 #include "desktop/timeline.hpp"
 #include "desktop/transport.hpp"
+#include "export/export.hpp"
 #include "media/probe.hpp"
 #include "project/document.hpp"
 #include <QComboBox>
@@ -10,6 +11,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMainWindow>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QSlider>
 #include <QTimer>
@@ -20,6 +22,10 @@ struct ImportResult {
     QString error;
 };
 enum class RecoveryChoice { Ask, Recover, Discard };
+struct ExportOutcome {
+    std::optional<exporting::Result> result;
+    QString error;
+};
 class Window : public QMainWindow {
     Q_OBJECT
   public:
@@ -43,6 +49,7 @@ class Window : public QMainWindow {
     void placeSelected();
     void playbackSettings();
     void sequenceSettings();
+    void exportSequence();
     void refreshSourceSelection();
     TimeRange selectedSourceRange(const MediaAsset &asset) const;
     QByteArray mediaDragPayload();
@@ -77,6 +84,9 @@ class Window : public QMainWindow {
     QPushButton *play_, *undo_, *redo_, *cancelImport_;
     QImage image_;
     QFutureWatcher<ImportResult> watcher_;
+    QFutureWatcher<ExportOutcome> exportWatcher_;
+    QProgressDialog *exportDialog_ = nullptr;
+    std::shared_ptr<std::atomic_bool> exportStop_;
     std::shared_ptr<std::atomic_bool> importStop_;
 };
 } // namespace nle::desktop

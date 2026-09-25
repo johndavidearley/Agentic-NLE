@@ -2,8 +2,12 @@
 #include <QCheckBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
+#include <QPointer>
 #include <QSpinBox>
+#include <QtConcurrentRun>
 #include <algorithm>
 namespace nle::desktop {
 namespace {
@@ -202,6 +206,89 @@ void Window::playbackSettings() {
         refresh();
     } catch (const std::exception &e) {
         report(e.what());
+    }
+}
+void Window::exportSequence() {
+    if (exportWatcher_.isRunning()) {
+        report("An export is already running.");
+        return;
+    }
+    if (!sequence_.value) {
+        report("Create or select a sequence before exporting.");
+        return;
+    }
+    QString selectedFilter;
+    const QString filters = "Lossless reference (Matroska, FFV1 + float PCM) (*.mkv);;"
+                            "H.264 delivery (MP4, AAC) (*.mp4)";
+    auto destination =
+        QFileDialog::getSaveFileName(this, "Export sequence", {}, filters, &selectedFilter);
+    if (destination.isEmpty())
+        return;
+    const auto preset = selectedFilter.startsWith("H.264") ? exporting::Preset::Mp4H264
+                                                           : exporting::Preset::LosslessReference;
+    const auto wanted = preset == exporting::Preset::Mp4H264 ? ".mp4" : ".mkv";
+    if (QFileInfo(destination).suffix().isEmpty())
+        destination += wanted;
+    try {
+        const auto project = editor_->snapshot();
+        auto plan = playback::make_sequence_plan(project, sequence_);
+        const auto stop = std::make_shared<std::atomic_bool>(false);
+        exportStop_ = stop;
+        auto *dialog =
+            new QProgressDialog("Preparing fixed project revision…", "Cancel", 0, 100, this);
+        dialog->setObjectName("exportProgress");
+        dialog->setWindowTitle("Export sequence");
+        dialog->setWindowModality(Qt::NonModal);
+        dialog->setAutoClose(false);
+        dialog->setAutoReset(false);
+        dialog->setMinimumDuration(0);
+        exportDialog_ = dialog;
+        connect(dialog, &QProgressDialog::canceled, this, [this, dialog] {
+            if (exportStop_)
+                exportStop_->store(true);
+            dialog->setLabelText("Cancelling export…");
+        });
+        const bool overwrite = QFileInfo::exists(destination);
+        QPointer<QProgressDialog> progress(dialog);
+        exporting::Options options{
+            media::utf8_path(destination.toStdString()), preset, overwrite,
+            [progress](const exporting::Progress &update) {
+                if (!progress)
+                    return;
+                QMetaObject::invokeMethod(
+                    progress.data(),
+                    [progress, update] {
+                        if (!progress)
+                            return;
+                        progress->setRange(0, static_cast<int>(update.frames_total));
+                        progress->setValue(static_cast<int>(update.frames_complete));
+                        progress->setLabelText(
+                            QString("Revision %1 · frame %2/%3 · audio %4/%5 samples")
+                                .arg(update.revision)
+                                .arg(update.frames_complete)
+                                .arg(update.frames_total)
+                                .arg(update.samples_complete)
+                                .arg(update.samples_total));
+                    },
+                    Qt::QueuedConnection);
+            }};
+        dialog->show();
+        exportWatcher_.setFuture(
+            QtConcurrent::run([plan = std::move(plan), options, stop]() mutable {
+                try {
+                    return ExportOutcome{
+                        exporting::export_sequence(std::move(plan), options, *stop), {}};
+                } catch (const std::exception &error) {
+                    return ExportOutcome{{}, QString::fromUtf8(error.what())};
+                }
+            }));
+    } catch (const std::exception &error) {
+        exportStop_.reset();
+        if (exportDialog_) {
+            exportDialog_->deleteLater();
+            exportDialog_ = nullptr;
+        }
+        report(error.what());
     }
 }
 void Window::sequenceSettings() {

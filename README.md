@@ -18,10 +18,13 @@ trim, position, split, delete and undo/redo controls, plus deliberate track plac
 mute and stream routing. Exact paused seeks and shared source clocks preserve frame selection
 and stream offsets; stepping follows the sequence output grid. The headless CLI remains available.
 An optional local MCP server gives agents detached previews, grouped commits, undo/redo and
-explicit saves through the same engine. There is no export pipeline yet.
+explicit saves through the same engine. The initial local export path is available in the
+optional Qt/FFmpeg build; see [export instructions](docs/export.md) and [Windows synthetic
+acceptance results](docs/export-evaluation.md).
 
-The [next development phase](docs/next-milestones.md) plans recovery, multi-track playback,
-practical timeline editing, export and shared human/agent sessions through an installable alpha.
+The [next development phase](docs/next-milestones.md) records completed recovery, multi-track
+playback and timeline editing, the export milestone now in progress, and the remaining shared
+human/agent workflow and installable alpha.
 
 The C++20 core provides typed persistent identities, exact rational time, detached
 inspection snapshots, validated commands, grouped transactions, revisions, actor/operation attribution, bounded undo/redo, and versioned native persistence.
@@ -42,6 +45,10 @@ ctest --test-dir build -C Debug --output-on-failure
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ~~~
+
+If MSBuild reports duplicate `Path`/`PATH` keys while launching `CL.exe`, use
+`python tools/build_windows.py build --config Release` (or `Debug`). The helper
+normalizes only the child build environment; it does not change system settings.
 
 Linux and macOS (CMake plus a C++20 toolchain; on macOS, install Xcode Command Line Tools):
 
@@ -85,6 +92,13 @@ origins, including negative origins, preserve relative A/V timing. See the
 [playback contract](docs/desktop-preview.md) for supported inputs and timing limits.
 Desktop CI is configured for Windows, Linux, and macOS on Apple Silicon and Intel;
 local desktop validation is Windows only.
+
+## Export a sequence
+
+The optional Qt/FFmpeg build includes a desktop **Export…** action and the headless
+`editor-export` command. Export is in progress; Windows synthetic media acceptance covers
+independent reference/delivery decode and failure preservation. Platform and failure-matrix gaps
+remain. See [export instructions](docs/export.md) and [evaluation results](docs/export-evaluation.md).
 
 ## Agent editing through MCP
 
@@ -173,9 +187,10 @@ negative edit positions, snapping, speed changes, linked A/V edits and transitio
 
 Original code is [MIT licensed](LICENSE). The headless core links no third-party runtime
 library. The optional ffprobe executable retains its own build-specific license; see
-[ADR 0009](docs/adr/0009-media-probing.md). The optional desktop dynamically links Qt and
-uses Qt's FFmpeg backend; dependency licenses and distribution obligations are recorded in
-[ADR 0010](docs/adr/0010-desktop-playback.md) and
-[ADR 0011](docs/adr/0011-source-origins-and-frame-index.md). The optional MCP adapter uses
+[ADR 0009](docs/adr/0009-media-probing.md). The optional desktop dynamically links Qt; preview uses Qt's FFmpeg backend, while export links
+to the FFmpeg 7 APIs and runtime. Dependency licenses and distribution obligations are recorded
+in [ADR 0010](docs/adr/0010-desktop-playback.md),
+[ADR 0011](docs/adr/0011-source-origins-and-frame-index.md), and
+[ADR 0015](docs/adr/0015-local-export.md). The optional MCP adapter uses
 MIT-licensed nlohmann/json; see [ADR 0012](docs/adr/0012-local-mcp-adapter.md). No dependency
 binaries are committed.

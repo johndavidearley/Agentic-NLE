@@ -19,17 +19,23 @@ std::size_t Chunk::bytes() const {
         n += p.video.rgb.size();
     return n;
 }
-Renderer::Renderer(playback::SequencePlan plan, RationalTime start, std::atomic_bool &stop)
-    : plan_(std::move(plan)), stop_(stop), video_(plan_.layers.size()),
-      audio_(plan_.layers.size()) {
+Renderer::Renderer(playback::SequencePlan plan, RationalTime start, std::atomic_bool &stop,
+                   RenderResolution resolution)
+    : plan_(std::move(plan)), stop_(stop), video_(plan_.layers.size()), audio_(plan_.layers.size()),
+      resolution_(resolution) {
     (void)plan_.evaluate(start);
     if (plan_.frame_duration.value() > 1000000000 || plan_.frame_duration.rate() > 1000000000 ||
         plan_.duration > RationalTime{86400} || plan_.frame_duration < RationalTime{1, 60} ||
         plan_.frame_duration > RationalTime{1})
-        throw DomainError("Preview supports up to 24 hours and output rates from 1 to 60 fps");
-    const double scale = std::min(960.0 / plan_.output.width, 540.0 / plan_.output.height);
-    width_ = std::max(2, static_cast<int>(plan_.output.width * scale));
-    height_ = std::max(2, static_cast<int>(plan_.output.height * scale));
+        throw DomainError("Rendering supports up to 24 hours and output rates from 1 to 60 fps");
+    if (resolution == RenderResolution::SequenceOutput) {
+        width_ = static_cast<int>(plan_.output.width);
+        height_ = static_cast<int>(plan_.output.height);
+    } else {
+        const double scale = std::min(960.0 / plan_.output.width, 540.0 / plan_.output.height);
+        width_ = std::max(2, static_cast<int>(plan_.output.width * scale));
+        height_ = std::max(2, static_cast<int>(plan_.output.height * scale));
+    }
     unsigned video = 0, audio = 0;
     std::set<std::size_t> media;
     for (const auto &layer : plan_.layers) {
@@ -87,8 +93,9 @@ Decoder &Renderer::decoder(const playback::Contribution &item, bool video) {
     auto &slot = (video ? video_ : audio_)[item.layer];
     if (!slot.decoder || slot.media != clip.media || slot.stream != *item.stream) {
         slot.decoder.reset();
-        slot.decoder = std::make_unique<Decoder>(plan_.media[clip.media], *item.stream, width_,
-                                                 height_, stop_);
+        slot.decoder =
+            std::make_unique<Decoder>(plan_.media[clip.media], *item.stream, width_, height_, stop_,
+                                      resolution_ == RenderResolution::SequenceOutput);
         slot.media = clip.media;
         slot.stream = *item.stream;
         slot.clip = {};

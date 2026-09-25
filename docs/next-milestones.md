@@ -1,7 +1,7 @@
 # Next development phase: a usable editor for people and agents
 
 Proposed 2026-09-15, following Milestone 6 at commit 30f3024. Milestone 7 completed on
-2026-09-16. Milestones 8 and 9 completed local acceptance and [platform validation](desktop-ci-evaluation.md) on 2026-09-21; Milestones 10–13 remain planned. This plan recommends completing the editing workflow first.
+2026-09-16. Milestones 8 and 9 completed local acceptance and [platform validation](desktop-ci-evaluation.md) on 2026-09-21; Milestone 10 is in progress and Milestones 11–13 remain planned. This plan recommends completing the editing workflow first.
 It defines deliverables and acceptance evidence, not calendar estimates or new backend choices.
 
 ## Phase outcome and order
@@ -116,6 +116,16 @@ at supported display scales. Commit no edit for intermediate mouse movements.
 linked-clip groups, general multi-selection transforms and a node/effects UI remain separate work.
 
 ## Milestone 10 — Export a Finished Video
+
+Status: in progress. The implementation decision is recorded in [ADR 0015](adr/0015-local-export.md).
+
+Implementation and bounded synthetic media acceptance (2026-09-22): the fixed-revision export
+engine, desktop action, headless command and both presets build on Windows Release. Independent
+decode verified frame/sample counts, source origins, black gaps, audio boundaries, lossy metrics and
+container metadata. Cancellation, changed-media and destination-preservation cases passed. The
+manual desktop workflow and bounded disk-full failure checks passed on 2026-09-23. An
+unavailable-encoder run and Linux/macOS export acceptance remain open; this milestone is not
+complete. See the [evaluation](export-evaluation.md) and [export guide](export.md).
 
 **Outcome:** export the supported sequence as a playable delivery file that agrees with preview.
 

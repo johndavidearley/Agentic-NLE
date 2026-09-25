@@ -12,8 +12,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QProgressDialog>
 #include <QShortcut>
 #include <QSignalBlocker>
 #include <QSplitter>
@@ -162,6 +164,7 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
         }
     });
     toolbar->addSeparator();
+    action("Export…", [this] { exportSequence(); });
     undo_ = button("Undo", "undoButton");
     redo_ = button("Redo", "redoButton");
     toolbar->addWidget(undo_);
@@ -383,6 +386,29 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
     connect(undoKey, &QShortcut::activated, undo_, &QPushButton::click);
     auto *redoKey = new QShortcut(QKeySequence::Redo, this);
     connect(redoKey, &QShortcut::activated, redo_, &QPushButton::click);
+    connect(&exportWatcher_, &QFutureWatcher<ExportOutcome>::finished, this, [this] {
+        if (exportDialog_) {
+            exportDialog_->close();
+            exportDialog_->deleteLater();
+            exportDialog_ = nullptr;
+        }
+        try {
+            const auto outcome = exportWatcher_.result();
+            if (outcome.result) {
+                const auto &value = *outcome.result;
+                report(QString("Exported revision %1 · %2 frames · %3 samples · %4 / %5")
+                           .arg(value.revision)
+                           .arg(value.frames)
+                           .arg(value.samples)
+                           .arg(QString::fromStdString(value.video_codec))
+                           .arg(QString::fromStdString(value.audio_codec)));
+            } else
+                report(outcome.error.isEmpty() ? "Export cancelled." : outcome.error);
+        } catch (const std::exception &error) {
+            report(error.what());
+        }
+        exportStop_.reset();
+    });
     refresh();
     try {
         startDraft();
@@ -396,6 +422,10 @@ Window::Window(QString worker, QString ffprobe, bool audible, QString recoveryDi
 Window::~Window() {
     if (importStop_)
         importStop_->store(true);
+    if (exportStop_)
+        exportStop_->store(true);
+    if (exportWatcher_.isRunning())
+        exportWatcher_.waitForFinished();
 }
 void Window::report(const QString &message) { notice_->setText(message); }
 bool Window::mayDiscard() {
@@ -421,6 +451,8 @@ void Window::closeEvent(QCloseEvent *event) {
     document_.reset();
     if (importStop_)
         importStop_->store(true);
+    if (exportStop_)
+        exportStop_->store(true);
     transport_.cancel();
     event->accept();
 }
