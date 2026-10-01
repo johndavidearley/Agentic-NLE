@@ -517,7 +517,8 @@ Result export_sequence(playback::SequencePlan plan, const Options &options,
     const char *container = options.preset == Preset::LosslessReference ? "matroska" : "mp4";
     Format format;
     AVFormatContext *raw = nullptr;
-    check(avformat_alloc_output_context2(&raw, nullptr, container, staging.output.string().c_str()),
+    check(avformat_alloc_output_context2(&raw, nullptr, container,
+                                         media::path_utf8(staging.output).c_str()),
           "Create export container");
     format.reset(raw);
     if (!format)
@@ -550,8 +551,9 @@ Result export_sequence(playback::SequencePlan plan, const Options &options,
                 options.preset == Preset::Mp4H264 ? "AAC-LC 192 kbit/s" : "PCM float 48 kHz stereo",
                 0);
     if (!(muxer.format->oformat->flags & AVFMT_NOFILE))
-        check(avio_open(&muxer.format->pb, staging.output.string().c_str(), AVIO_FLAG_WRITE),
-              "Open staged export");
+        check(
+            avio_open(&muxer.format->pb, media::path_utf8(staging.output).c_str(), AVIO_FLAG_WRITE),
+            "Open staged export");
     AVDictionary *mux_options = nullptr;
     if (options.preset == Preset::Mp4H264) {
         av_dict_set(&mux_options, "movie_timescale", "48000", 0);
@@ -605,6 +607,8 @@ Result export_sequence(playback::SequencePlan plan, const Options &options,
     renderer.validate_sources();
     if (stop.load(std::memory_order_relaxed))
         throw DomainError("Export cancelled");
+    if (options.validate_destination)
+        options.validate_destination();
     install(staging.output, target, options.overwrite);
     return {
         plan.revision,          plan.duration,

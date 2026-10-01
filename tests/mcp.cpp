@@ -1,5 +1,8 @@
 #include "mcp/session.hpp"
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <thread>
 using namespace nle;
 using namespace nle::mcp;
 #define CHECK(x)                                                                                   \
@@ -282,14 +285,140 @@ void protocol() {
     invalid["commands"][0]["path"] = "outside";
     rejected(call(session, "edit_preview", invalid), "invalid_arguments");
 }
-int main() {
+void media_boundary(const std::filesystem::path &executable) {
+    namespace fs = std::filesystem;
+    const auto base =
+        fs::current_path() /
+        ("mcp-media-access-" + std::to_string(Clock::now().time_since_epoch().count()));
+    const auto root = base / "assets";
+    const auto sibling = base / "assets-extra";
+    fs::create_directories(root);
+    fs::create_directory(sibling);
+    const auto inside = root / media::utf8_path("caf\xc3\xa9.wav");
+    const auto outside = sibling / "outside.wav";
+    std::ofstream(inside, std::ios::binary).put('a');
+    std::ofstream(outside, std::ios::binary).put('b');
+    const auto denied = [](auto action, const std::string &code) {
+        try {
+            action();
+        } catch (const Failure &error) {
+            CHECK(error.code == code);
+            return;
+        }
+        throw std::runtime_error("expected media access rejection");
+    };
+    MediaAccess access({root, root}, executable);
+    CHECK(access.roots().size() == 1);
+    CHECK(access.approved_file(inside) == fs::canonical(inside));
+    denied([&] { (void)access.approved_file(outside); }, "media_path_denied");
+    denied([&] { (void)access.approved_file(root / ".." / "assets-extra" / "outside.wav"); },
+           "media_path_denied");
+    denied([&] { (void)access.approved_file("relative.wav"); }, "media_path_denied");
+    denied([&] { (void)access.approved_file(root / "missing.wav"); }, "media_unavailable");
+    std::error_code error;
+    const auto link = root / "outside-link.wav";
+    fs::create_symlink(outside, link, error);
+    if (!error) {
+        denied([&] { (void)access.approved_file(link); }, "media_path_denied");
+        fs::remove(link);
+    }
+    OutputAccess output({root}, inside);
+    Editor export_editor("Export job fixture");
+    const auto sequence = *export_editor.execute(CreateSequence{"Main", {1, 30}}).sequence;
+    Policy export_policy;
+    export_policy.media_access = access;
+    export_policy.output_access = output;
+    auto release = std::make_shared<std::promise<void>>();
+    auto gate = release->get_future().share();
+    export_policy.export_sequence = [gate](auto project, auto, auto options, auto &stop) {
+        options.progress({project.revision, 0, 60, 0, 96000});
+        if (gate.wait_for(std::chrono::seconds{2}) != std::future_status::ready)
+            throw DomainError("Test gate timed out");
+        if (stop.load())
+            throw DomainError("Export cancelled");
+        return exporting::Result{project.revision, {2}, 60, 96000, "ffv1", "pcm_f32le", "test"};
+    };
+    Session export_session(export_editor.snapshot(), export_policy);
+    initialize(export_session);
+    auto start_args = request(export_session, "start-export");
+    start_args["sequence_id"] = std::to_string(sequence.value);
+    start_args["path"] = media::path_utf8(root / "result.mkv");
+    start_args["preset"] = "lossless_reference";
+    start_args["overwrite"] = false;
+    auto stale = start_args;
+    stale["request_key"] = "stale-export";
+    stale["expected_revision"] = "0";
+    rejected(call(export_session, "export_start", stale), "revision_conflict");
+    const auto started = call(export_session, "export_start", start_args);
+    CHECK(started.at("ok") == true && started.at("status") == "running");
+    CHECK(call(export_session, "export_start", start_args) == started);
+    auto busy = start_args;
+    busy["request_key"] = "busy-export";
+    rejected(call(export_session, "export_start", busy), "job_limit");
+    auto cancel = request(export_session, "cancel-export");
+    cancel["job_id"] = started.at("job_id");
+    const auto cancelled = call(export_session, "export_cancel", cancel);
+    CHECK(cancelled.at("cancel_requested") == true);
+    CHECK(call(export_session, "export_cancel", cancel) == cancelled);
+    release->set_value();
+    auto poll = request(export_session, "unused");
+    poll.erase("request_key");
+    poll.erase("expected_revision");
+    poll["job_id"] = started.at("job_id");
+    Json status;
+    for (int attempt = 0; attempt < 1000; ++attempt) {
+        status = call(export_session, "export_status", poll);
+        if (status.at("status") != "running")
+            break;
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+    CHECK(status.at("status") == "cancelled");
+    CHECK(export_session.current().revision == export_editor.revision());
+    denied([&] { (void)MediaAccess({root}, root / "missing-probe"); }, "configuration");
+    denied([&] { (void)MediaAccess({fs::current_path().root_path()}, executable); },
+           "configuration");
+    Policy policy;
+    policy.media_access = access;
+    Session session(fixture(), policy);
+    initialize(session);
+    const auto info = call(session, "project_get");
+    CHECK(info.at("allow_media") == true && info.at("allow_edit") == false);
+    CHECK(info.at("media_root_count") == 1);
+    CHECK(output.approved_file(root / "result.mkv") == fs::canonical(root) / "result.mkv");
+    denied([&] { (void)output.approved_file(outside); }, "output_path_denied");
+    denied([&] { (void)output.approved_file(root / ".." / "assets-extra" / "result.mkv"); },
+           "output_path_denied");
+    denied([&] { (void)output.approved_file(inside); }, "output_path_denied");
+    auto sidecar = inside;
+    sidecar += ".recovery-0";
+    denied([&] { (void)output.approved_file(sidecar); }, "output_path_denied");
+    denied([&] { (void)output.approved_file("relative.mkv"); }, "output_path_denied");
+    fs::create_hard_link(inside, link, error);
+    if (!error) {
+        denied([&] { (void)output.approved_file(link); }, "output_path_denied");
+        fs::remove(link);
+    }
+    fs::create_symlink(outside, link, error);
+    if (!error) {
+        denied([&] { (void)output.approved_file(link); }, "output_path_denied");
+        fs::remove(link);
+    }
+    fs::remove(inside);
+    fs::remove(outside);
+    fs::remove(root);
+    fs::remove(sibling);
+    fs::remove(base);
+}
+int main(int argc, char **argv) {
     try {
+        CHECK(argc == 1);
         equivalence();
         stale_and_permissions();
         expiry_and_limits();
         protocol();
+        media_boundary(std::filesystem::canonical(argv[0]));
         std::cout << "MCP lifecycle, command equivalence, permissions, revisions, retries, expiry "
-                     "and limits passed\n";
+                     "and media path boundaries passed\n";
         return 0;
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

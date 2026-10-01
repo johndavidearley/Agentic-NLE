@@ -114,8 +114,8 @@ See [the detailed plan](next-milestones.md) for scope, dependencies, acceptance 
 | 7 — Reliable Projects and Recovery | Verified platform baseline, coordinated saves and recoverable desktop work | Complete |
 | 8 — Multi-track Playback | B-roll, dialogue and music play together with defined routing and timing | Complete |
 | 9 — Practical Timeline Editing | Zoom, scroll, drag, trim, snap, thumbnails and waveforms | Complete |
-| 10 — Export a Finished Video | A validated output file matching the supported sequence | Planned |
-| 11 — Agent Media Preparation | Approved import/relink and observable export jobs through MCP | Planned |
+| 10 — Export a Finished Video | A validated output file matching the supported sequence | In progress |
+| 11 — Agent Media Preparation | Approved import/relink and observable export jobs through MCP | In progress |
 | 12 — Shared Human and Agent Editing | One live project, visible proposals and one undo history | Planned |
 | 13 — Installable Alpha | Packaged and verified complete workflows on the supported platforms | Planned |
 

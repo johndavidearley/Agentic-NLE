@@ -90,7 +90,20 @@ try:
     project = root / 'agent \u65e5\u672c project.nle'
     subprocess.run([str(cli), 'demo', str(project)], check=True, capture_output=True)
     original = project.read_bytes()
+    for flags in [('--allow-media',), ('--media-root', str(root)), ('--ffprobe', str(server)),
+                  ('--allow-export',), ('--output-root', str(root)),
+                  ('--media-root', str(root), '--ffprobe', str(server)),
+                  ('--allow-media', '--media-root', str(root), '--ffprobe', 'relative-probe')]:
+        invalid = subprocess.run([str(server), '--project', str(project), *flags],
+            input='', capture_output=True, text=True, encoding='utf-8', timeout=5)
+        assert invalid.returncode != 0 and 'configuration' in invalid.stderr, invalid.stderr
+    media_enabled = start(project, '--allow-media', '--media-root', str(root),
+                          '--ffprobe', str(server))
+    assert media_enabled.info['allow_media'] and media_enabled.info['media_root_count'] == 1
+    assert not media_enabled.info['allow_edit']
+    media_enabled.close()
     readonly = start(project)
+    assert not readonly.info['allow_media']
     catalog = readonly.rpc('tools/list')['result']['tools']
     assert len(catalog) == 9 and all('inputSchema' in t and 'outputSchema' in t for t in catalog)
     assert readonly.raw('{')['error']['code'] == -32700

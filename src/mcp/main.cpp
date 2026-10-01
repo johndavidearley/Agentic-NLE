@@ -1,5 +1,6 @@
 #include "mcp/project_file.hpp"
 #include "mcp/session.hpp"
+#include <algorithm>
 #include <iostream>
 #ifdef _WIN32
 #define NOMINMAX
@@ -14,7 +15,12 @@ int run(const std::vector<std::string> &args) {
     try {
         Policy policy;
         std::string project;
+        std::vector<std::filesystem::path> media_roots;
+        std::string ffprobe;
+        std::vector<std::filesystem::path> output_roots;
+        bool allow_export = false;
         bool actor_seen = false, recovery = false, recover = false, discard = false;
+        bool allow_media = false;
         for (std::size_t i = 1; i < args.size(); ++i) {
             if (args[i] == "--project" && project.empty() && i + 1 < args.size())
                 project = args[++i];
@@ -25,6 +31,16 @@ int run(const std::vector<std::string> &args) {
                 policy.allow_edit = true;
             else if (args[i] == "--allow-save" && !policy.allow_save)
                 policy.allow_save = true;
+            else if (args[i] == "--allow-media" && !allow_media)
+                allow_media = true;
+            else if (args[i] == "--media-root" && i + 1 < args.size())
+                media_roots.push_back(nle::media::utf8_path(args[++i]));
+            else if (args[i] == "--ffprobe" && ffprobe.empty() && i + 1 < args.size())
+                ffprobe = args[++i];
+            else if (args[i] == "--allow-export" && !allow_export)
+                allow_export = true;
+            else if (args[i] == "--output-root" && i + 1 < args.size())
+                output_roots.push_back(nle::media::utf8_path(args[++i]));
             else if (args[i] == "--recovery" && !recovery)
                 recovery = true;
             else if (args[i] == "--recover" && !recover && !discard)
@@ -34,7 +50,9 @@ int run(const std::vector<std::string> &args) {
             else
                 throw Failure("configuration",
                               "Usage: editor-mcp --project FILE [--actor ID] [--allow-edit] "
-                              "[--allow-save] [--recovery [--recover|--discard-recovery]]");
+                              "[--allow-save] [--allow-media --media-root DIR --ffprobe FILE] "
+                              "[--allow-export --output-root DIR (export-capable launcher)] "
+                              "[--recovery [--recover|--discard-recovery]]");
         }
         if (project.empty())
             throw Failure("configuration", "Select one existing project with --project FILE.");
@@ -44,6 +62,57 @@ int run(const std::vector<std::string> &args) {
         if ((recovery && !policy.allow_edit) || ((recover || discard) && !recovery))
             throw Failure("configuration", "Recovery requires --recovery and --allow-edit; it "
                                            "separately permits checkpoint writes.");
+        if ((allow_media && (media_roots.empty() || ffprobe.empty())) ||
+            (!allow_media && (!media_roots.empty() || !ffprobe.empty())))
+            throw Failure("configuration", "Media access requires --allow-media, at least one "
+                                           "--media-root and a fixed --ffprobe executable.");
+        if (allow_media)
+            policy.media_access.emplace(std::move(media_roots), nle::media::utf8_path(ffprobe));
+        if (allow_export != !output_roots.empty() || (allow_export && !allow_media))
+            throw Failure("configuration",
+                          "Export requires --allow-export, --output-root and media permission.");
+        if (allow_export) {
+#ifdef NLE_MCP_EXPORT
+            policy.output_access.emplace(std::move(output_roots), std::filesystem::path(path));
+            policy.export_sequence = [access = *policy.media_access](auto snapshot, auto sequence,
+                                                                     auto options, auto &stop) {
+                auto plan = nle::playback::make_sequence_plan(snapshot, sequence);
+                std::vector<std::filesystem::path> sources;
+                for (auto &asset : plan.media) {
+                    const auto location = std::find_if(
+                        asset.locations.begin(), asset.locations.end(),
+                        [](const auto &v) { return v.role == nle::LocationRole::Original; });
+                    if (location == asset.locations.end())
+                        throw Failure("media_unavailable", "Original media is unlocated.");
+                    const auto approved =
+                        access.approved_file(nle::media::utf8_path(location->uri));
+                    location->uri = nle::media::path_utf8(approved);
+                    sources.push_back(approved);
+                }
+                const auto destination_check = options.validate_destination;
+                options.validate_destination = [access, sources, destination = options.destination,
+                                                destination_check] {
+                    destination_check();
+                    for (const auto &source : sources) {
+                        if (access.approved_file(source) != source)
+                            throw Failure("media_path_denied",
+                                          "Source path changed during export.");
+                        std::error_code error;
+                        if (destination == source ||
+                            std::filesystem::equivalent(destination, source, error))
+                            throw Failure("output_path_denied",
+                                          "Export cannot replace a media source.");
+                    }
+                };
+                options.validate_destination();
+                return nle::exporting::export_sequence(std::move(plan), options, stop);
+            };
+#else
+            throw Failure(
+                "configuration",
+                "Use editor-mcp-export for export grants; this server remains lightweight.");
+#endif
+        }
         ProjectFile file(std::filesystem::path(path), policy.allow_save || recovery);
         auto state = file.load();
         policy.saved_revision = state.revision;

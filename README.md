@@ -18,8 +18,9 @@ trim, position, split, delete and undo/redo controls, plus deliberate track plac
 mute and stream routing. Exact paused seeks and shared source clocks preserve frame selection
 and stream offsets; stepping follows the sequence output grid. The headless CLI remains available.
 An optional local MCP server gives agents detached previews, grouped commits, undo/redo and
-explicit saves through the same engine. The initial local export path is available in the
-optional Qt/FFmpeg build; see [export instructions](docs/export.md) and [Windows synthetic
+explicit saves through the same engine. Milestone 11, still in progress, adds separately granted
+probe/import and verified relink jobs for approved media roots. The initial local export path is
+available in the optional Qt/FFmpeg build; see [export instructions](docs/export.md) and [Windows synthetic
 acceptance results](docs/export-evaluation.md).
 
 The [next development phase](docs/next-milestones.md) records completed recovery, multi-track
@@ -106,6 +107,8 @@ Build with -DNLE_BUILD_MCP=ON and configure a local MCP client to launch editor-
 --project FILE. Sessions are read-only by default; --allow-edit and --allow-save grant
 separate permissions. Agents inspect existing media, preview command batches, commit one
 undoable edit, and save explicitly. The core and server do not require Qt.
+Milestone 11 adds optional approved-media probing/import/relink and a separate
+`editor-mcp-export` launcher (desktop/FFmpeg build) for output-granted fixed-revision export jobs.
 
 See [setup and workflow](docs/agent-editing.md) and [validation](docs/mcp-evaluation.md).
 The native project remains editable in the desktop after the agent session is closed.

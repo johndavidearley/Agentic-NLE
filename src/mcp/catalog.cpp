@@ -8,7 +8,7 @@ Json object(Json properties, Json required) {
             {"additionalProperties", false}};
 }
 } // namespace
-Json tool_catalog() {
+Json tool_catalog(bool media_enabled, bool export_enabled) {
     const Json str{{"type", "string"}, {"minLength", 1}, {"maxLength", 4096}};
     const Json integer{{"type", "string"}, {"pattern", "^(0|[1-9][0-9]*)$"}, {"maxLength", 20}};
     const Json positive{{"type", "string"}, {"pattern", "^[1-9][0-9]*$"}, {"maxLength", 20}};
@@ -148,6 +148,47 @@ Json tool_catalog() {
         "Save to the single launcher-selected file. Requires save permission and no external "
         "changes since load/last save. No path or Save As argument is accepted.",
         Json::object(), Json::array(), false, true);
+    if (media_enabled) {
+        add("media_probe_start",
+            "Start a bounded asynchronous probe of one file inside a launcher-approved media "
+            "root. Optionally select an existing media ID for verified relink. Returns a "
+            "session-scoped job ID, not a project edit.",
+            {{"path", str}, {"relink_media_id", positive}}, {"path"}, true, true);
+        add("media_probe_status",
+            "Poll a probe job. A ready result contains inspected facts and an import proposal; "
+            "it does not register media.",
+            {{"session_id", str}, {"project_id", positive}, {"job_id", str}},
+            {"session_id", "project_id", "job_id"}, true);
+        add("media_probe_cancel", "Cancel or discard a probe job without editing the project.",
+            {{"job_id", str}}, {"job_id"}, true, true);
+        add("media_import_commit",
+            "Register a ready probe as one undoable edit. Requires both media and edit "
+            "permissions, unchanged media and the original project revision.",
+            {{"job_id", str}, {"label", str}}, {"job_id"}, false, true);
+        add("media_relink_commit",
+            "Apply a ready relink probe to its selected logical asset as one undoable edit. "
+            "Requires media and edit permissions, unchanged media and the original revision.",
+            {{"job_id", str}, {"label", str}}, {"job_id"}, false, true);
+    }
+    if (export_enabled) {
+        add("export_start",
+            "Export a captured sequence revision to an approved output root. Requires separate "
+            "output and media grants; no live edit or save occurs.",
+            {{"sequence_id", positive},
+             {"path", str},
+             {"preset", {{"enum", {"lossless_reference", "mp4_h264"}}}},
+             {"overwrite", {{"type", "boolean"}}}},
+            {"sequence_id", "path", "preset", "overwrite"}, false, true);
+        add("export_status",
+            "Poll fixed-revision export progress and the final codec/count result. Polls are not "
+            "cached.",
+            {{"session_id", str}, {"project_id", positive}, {"job_id", str}},
+            {"session_id", "project_id", "job_id"}, true);
+        add("export_cancel",
+            "Request export cancellation. Poll for the actual outcome; installation may already "
+            "have succeeded.",
+            {{"job_id", str}}, {"job_id"}, false, true);
+    }
     return tools;
 }
 } // namespace nle::mcp

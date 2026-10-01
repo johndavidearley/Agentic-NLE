@@ -23,6 +23,6 @@ Json operation(const OperationRecord &value);
 Json command_result(const CommandResult &value);
 using Aliases = std::map<std::string, CommandResult>;
 Command command(const Json &value, const Aliases &aliases);
-Json tool_catalog();
+Json tool_catalog(bool media_enabled = false, bool export_enabled = false);
 Json parse(std::string_view value);
 } // namespace nle::mcp

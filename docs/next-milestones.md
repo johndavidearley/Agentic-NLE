@@ -156,6 +156,14 @@ supported profile, with approximation and color limitations stated.
 
 ## Milestone 11 — Agent Media Preparation
 
+Status: in progress. Launcher-granted media roots and a fixed probe executable now gate bounded,
+cancellable probe jobs. Ready results propose an import or verified relink; commits use expected
+revisions, normal commands and undo/redo. Local stdio and official MCP client tests cover approved
+Unicode import, a rough cut, relink, save/reopen, denied paths, cancellation, stale/changed media
+and idempotent retries. The export-capable launcher now supports separate output grants,
+fixed-revision jobs, progress and cancellation. Cross-platform validation and the desktop
+import-to-export comparison remain open. See the [evaluation](mcp-media-evaluation.md).
+
 **Outcome:** an agent can prepare a project using user-selected media and repair moved sources.
 
 Deliver:
