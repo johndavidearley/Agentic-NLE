@@ -1,0 +1,218 @@
+{
+  "date": "2026-10-01",
+  "base_commit": "e1ce26a86adb16dedbbb34f130aef62f1be88aa9",
+  "tested_change": "src/export/export.hpp: default initialize Options::validate_destination to {}",
+  "platform": "macOS 15.7.9 (24G830), Intel x86_64",
+  "compiler": "AppleClang 17.0.0.17000604",
+  "configuration": "Release",
+  "qt": "6.10.3",
+  "ffmpeg_headers": "7.1.3; linked to Qt SDK FFmpeg runtime",
+  "python": "3.11.15",
+  "mcp_sdk": "2.2.0",
+  "cryptography": "46.0.3 (local Intel wheel; satisfies SDK dependency)",
+  "clang_format": "19.1.1",
+  "warnings_as_errors": true,
+  "tests_passed": 53,
+  "tests_total": 53,
+  "test_duration_seconds": 103.65,
+  "ctest_output": "Test project /tmp/nle-macos-desktop\n      Start  1: timeline-edit\n 1/53 Test  #1: timeline-edit ....................   Passed    0.00 sec\n      Start  2: document-files\n 2/53 Test  #2: document-files ...................   Passed    0.04 sec\n      Start  3: qt-timeline-1\n 3/53 Test  #3: qt-timeline-1 ....................   Passed    0.74 sec\n      Start  4: qt-timeline-1.5\n 4/53 Test  #4: qt-timeline-1.5 ..................   Passed    0.95 sec\n      Start  5: qt-timeline-2\n 5/53 Test  #5: qt-timeline-2 ....................   Passed    1.24 sec\n      Start  6: qt-recovery\n 6/53 Test  #6: qt-recovery ......................   Passed    0.54 sec\n      Start  7: mcp-session\n 7/53 Test  #7: mcp-session ......................   Passed    0.13 sec\n      Start  8: mcp-stdio\n 8/53 Test  #8: mcp-stdio ........................   Passed    0.46 sec\n      Start  9: mcp-sdk\n 9/53 Test  #9: mcp-sdk ..........................   Passed    1.24 sec\n      Start 10: source-timing\n10/53 Test #10: source-timing ....................   Passed    0.01 sec\n      Start 11: sequence-evaluation\n11/53 Test #11: sequence-evaluation ..............   Passed    0.01 sec\n      Start 12: playback-plan\n12/53 Test #12: playback-plan ....................   Passed    0.01 sec\n      Start 13: media-parsing\n13/53 Test #13: media-parsing ....................   Passed    0.01 sec\n      Start 14: media-commands\n14/53 Test #14: media-commands ...................   Passed    0.01 sec\n      Start 15: media-process\n15/53 Test #15: media-process ....................   Passed    0.47 sec\n      Start 16: media-corpus\n16/53 Test #16: media-corpus .....................   Passed    0.72 sec\n      Start 17: media-integration\n17/53 Test #17: media-integration ................   Passed    0.49 sec\n      Start 18: media-cli\n18/53 Test #18: media-cli ........................   Passed    0.49 sec\n      Start 19: mcp-media\n19/53 Test #19: mcp-media ........................   Passed    0.74 sec\n      Start 20: mcp-media-sdk\n20/53 Test #20: mcp-media-sdk ....................   Passed    1.44 sec\n      Start 21: mcp-export-sdk\n21/53 Test #21: mcp-export-sdk ...................   Passed    3.35 sec\n      Start 22: multitrack-corpus\n22/53 Test #22: multitrack-corpus ................   Passed    3.47 sec\n      Start 23: multitrack-playback\n23/53 Test #23: multitrack-playback ..............   Passed   22.57 sec\n      Start 24: qt-media-cache\n24/53 Test #24: qt-media-cache ...................   Passed    9.98 sec\n      Start 25: qt-timeline-workflow-1\n25/53 Test #25: qt-timeline-workflow-1 ...........   Passed    1.48 sec\n      Start 26: qt-timeline-workflow-1.5\n26/53 Test #26: qt-timeline-workflow-1.5 .........   Passed    1.63 sec\n      Start 27: qt-timeline-workflow-2\n27/53 Test #27: qt-timeline-workflow-2 ...........   Passed    1.93 sec\n      Start 28: sequence-supervision\n28/53 Test #28: sequence-supervision .............   Passed    4.64 sec\n      Start 29: qt-precision\n29/53 Test #29: qt-precision .....................   Passed   31.80 sec\n      Start 30: qt-desktop\n30/53 Test #30: qt-desktop .......................   Passed    1.71 sec\n      Start 31: qt-playback\n31/53 Test #31: qt-playback ......................   Passed   10.37 sec\n      Start 32: session-transactions\n32/53 Test #32: session-transactions .............   Passed    0.34 sec\n      Start 33: session-rollback\n33/53 Test #33: session-rollback .................   Passed    0.01 sec\n      Start 34: session-revisions\n34/53 Test #34: session-revisions ................   Passed    0.01 sec\n      Start 35: session-concurrency\n35/53 Test #35: session-concurrency ..............   Passed    0.01 sec\n      Start 36: session-history-limits\n36/53 Test #36: session-history-limits ...........   Passed    0.01 sec\n      Start 37: session-track-media\n37/53 Test #37: session-track-media ..............   Passed    0.01 sec\n      Start 38: session-migration\n38/53 Test #38: session-migration ................   Passed    0.02 sec\n      Start 39: session-fuzz-persistence\n39/53 Test #39: session-fuzz-persistence .........   Passed    0.08 sec\n      Start 40: session-save-failure\n40/53 Test #40: session-save-failure .............   Passed    0.02 sec\n      Start 41: time\n41/53 Test #41: time .............................   Passed    0.33 sec\n      Start 42: creation\n42/53 Test #42: creation .........................   Passed    0.01 sec\n      Start 43: insert\n43/53 Test #43: insert ...........................   Passed    0.01 sec\n      Start 44: move\n44/53 Test #44: move .............................   Passed    0.01 sec\n      Start 45: trim\n45/53 Test #45: trim .............................   Passed    0.01 sec\n      Start 46: split\n46/53 Test #46: split ............................   Passed    0.00 sec\n      Start 47: delete\n47/53 Test #47: delete ...........................   Passed    0.00 sec\n      Start 48: history\n48/53 Test #48: history ..........................   Passed    0.01 sec\n      Start 49: persistence\n49/53 Test #49: persistence ......................   Passed    0.05 sec\n      Start 50: validation\n50/53 Test #50: validation .......................   Passed    0.01 sec\n      Start 51: cli-session-demo\n51/53 Test #51: cli-session-demo .................   Passed    0.02 sec\n      Start 52: cli-demo\n52/53 Test #52: cli-demo .........................   Passed    0.02 sec\n      Start 53: cli-inspect\n53/53 Test #53: cli-inspect ......................   Passed    0.02 sec\n\n100% tests passed out of 53\n\nTotal Test time (real) = 103.65 sec\n",
+  "reports": {
+    "mcp-evaluation-Release.json": {
+      "sdk": "mcp",
+      "sdk_version": "2.2.0",
+      "protocol": "2025-11-25",
+      "tools": [
+        "edit_commit",
+        "edit_preview",
+        "edit_rollback",
+        "history_redo",
+        "history_undo",
+        "project_changes",
+        "project_get",
+        "project_save",
+        "project_snapshot"
+      ],
+      "tool_calls": 24,
+      "commands_in_batch": 13,
+      "exact_frame_duration": {
+        "rate": "30000",
+        "value": "1001"
+      },
+      "grouped_edit_undo_redo": true,
+      "idempotent_commit_and_save": true,
+      "schemas_validated": true,
+      "elapsed_ms": 164.47
+    },
+    "multitrack-evaluation-Release.json": {
+      "audio_max_sample_error": 0,
+      "av_delivery_drift_ms": 0.2454857666666701,
+      "backend": "sequence-worker",
+      "black_errors": 0,
+      "cancel_ms": 4,
+      "duration_seconds": 12,
+      "early_av_pairs": 90,
+      "first_delivery_lateness_ms": 5.474697,
+      "frame_errors": 0,
+      "initial_ready_ms": 781,
+      "last_delivery_lateness_ms": 6.614502000000357,
+      "late_av_pairs": 90,
+      "passed": true,
+      "presentation_drift_ms": 1.139805000000357,
+      "seek_p95_ms": 461,
+      "worker": {
+        "dropped": 0,
+        "first_lateness_us": 1196,
+        "frames": 361,
+        "last_lateness_us": 552,
+        "late_frames": [],
+        "max_encode_us": 11080,
+        "max_tick_gap_us": 3361,
+        "queue_peak_bytes": 562510,
+        "type": "ended",
+        "underruns": 0
+      }
+    },
+    "playback-evaluation-Release.json": [
+      {
+        "av_pairs": 0,
+        "cancel_ms": 10,
+        "file": "tone.wav",
+        "load_ms": 184,
+        "max_av_delivery_skew_us": 0,
+        "seek_frame_end_us": -1,
+        "seek_frame_pts_us": -1,
+        "seek_ms": 188,
+        "vfr_between_frame_pts_us": -1,
+        "vfr_between_frame_seek_us": -1
+      },
+      {
+        "av_pairs": 0,
+        "cancel_ms": 10,
+        "file": "video.mp4",
+        "load_ms": 260,
+        "max_av_delivery_skew_us": 0,
+        "seek_frame_end_us": 500500,
+        "seek_frame_pts_us": 467133,
+        "seek_ms": 200,
+        "vfr_between_frame_pts_us": -1,
+        "vfr_between_frame_seek_us": -1
+      },
+      {
+        "av_pairs": 7,
+        "cancel_ms": 10,
+        "file": "av.mkv",
+        "load_ms": 223,
+        "max_av_delivery_skew_us": 7096,
+        "seek_frame_end_us": 541000,
+        "seek_frame_pts_us": 500000,
+        "seek_ms": 193,
+        "vfr_between_frame_pts_us": -1,
+        "vfr_between_frame_seek_us": -1
+      },
+      {
+        "av_pairs": 0,
+        "cancel_ms": 10,
+        "file": "vfr.mkv",
+        "load_ms": 230,
+        "max_av_delivery_skew_us": 0,
+        "seek_frame_end_us": 516000,
+        "seek_frame_pts_us": 500000,
+        "seek_ms": 200,
+        "vfr_between_frame_pts_us": 500000,
+        "vfr_between_frame_seek_us": 550000
+      }
+    ],
+    "precision-evaluation-Release.json": [
+      {
+        "file": "vfr.mkv",
+        "frame_count": 17,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+      },
+      {
+        "file": "bframes.mp4",
+        "frame_count": 120,
+        "max_decoded_pts_error_us": 1,
+        "step_checks": 7
+      },
+      {
+        "file": "offset-common.mkv",
+        "frame_count": 96,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+      },
+      {
+        "file": "offset-audio.mkv",
+        "frame_count": 96,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+      },
+      {
+        "file": "offset-video.mkv",
+        "frame_count": 84,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+      },
+      {
+        "file": "negative-origin.mkv",
+        "frame_count": 96,
+        "max_decoded_pts_error_us": 0,
+        "step_checks": 7
+      },
+      {
+        "file": "negative-audio.mkv",
+        "first_audio_after_quarter_second_seek_us": 235000
+      },
+      {
+        "index_cancel_ms": 10
+      },
+      {
+        "early_pairs": 47,
+        "file": "long-av.mkv",
+        "first_audio_us": 500000,
+        "first_video_us": 0,
+        "late_pairs": 50,
+        "max_delivery_skew_us": 134902,
+        "mean_offset_drift_us": 132.95659574468118
+      }
+    ],
+    "timeline-evaluation-1-Release.json": {
+      "clips": 1000,
+      "commits": 6,
+      "gesture_max_ms": 3.44478,
+      "gesture_p50_ms": 2.219262,
+      "gesture_p95_ms": 3.131562,
+      "iterations": 120,
+      "press_ms": 0.413937,
+      "rejections": 5,
+      "scale": 1
+    },
+    "timeline-evaluation-1.5-Release.json": {
+      "clips": 1000,
+      "commits": 6,
+      "gesture_max_ms": 6.328182,
+      "gesture_p50_ms": 3.783447,
+      "gesture_p95_ms": 4.94256,
+      "iterations": 120,
+      "press_ms": 0.414981,
+      "rejections": 5,
+      "scale": 1.5
+    },
+    "timeline-evaluation-2-Release.json": {
+      "clips": 1000,
+      "commits": 6,
+      "gesture_max_ms": 13.943545,
+      "gesture_p50_ms": 5.552208,
+      "gesture_p95_ms": 8.61349,
+      "iterations": 120,
+      "press_ms": 0.398722,
+      "rejections": 5,
+      "scale": 2
+    }
+  },
+  "limitations": [
+    "Apple Silicon execution not performed",
+    "Local socket tests executed outside the sandbox",
+    "Linker reported an existing duplicate libnle_decode.a warning; compiler checks passed"
+  ]
+}

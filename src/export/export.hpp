@@ -16,7 +16,7 @@ struct Options {
     bool overwrite = false;
     std::function<void(const Progress &)> progress;
     // Optional launcher policy recheck immediately before installing the staged output.
-    std::function<void()> validate_destination;
+    std::function<void()> validate_destination = {};
 };
 struct Result {
     std::uint64_t revision = 0;
