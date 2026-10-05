@@ -76,7 +76,12 @@ supervision checks; failed playback leaves the editor unchanged.
 Timing uses silent output on one monotonic sample clock. For each video delivery, the
 harness pairs the most recent PCM delivery at/before its timeline timestamp, subtracts their
 timeline separation, and compares mean skew in early and late three-second windows. It also
-records first-to-last video delivery lateness. These measure delivery drift, not physical
+records first-to-last video delivery lateness. Since the 2026-10-04 CI correction, the
+`presentation_drift_ms` gate compares mean video lateness in those same steady-state windows;
+the original endpoint difference remains as `endpoint_delivery_difference_ms`, with both endpoint
+latencies retained. This separates startup command/socket latency from sustained drift while
+keeping the 20 ms limit. Earlier measurements in this document used the endpoint metric.
+These measure delivery drift, not physical
 speaker/display synchronization. A separate available-device test sends silent PCM through
 the real QAudioSink and checks its processed-sample clock.
 

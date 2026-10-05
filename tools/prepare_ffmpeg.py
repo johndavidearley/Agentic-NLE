@@ -85,4 +85,11 @@ else:
         link(lib/runtime.name, runtime)
         link(lib/(f'lib{name}.dylib' if platform.system() == 'Darwin' else f'lib{name}.so'),
              runtime)
+    if platform.system() == 'Linux':
+        # Qt's FFmpeg DT_NEEDED entries use SDK-provided stubs for optional system
+        # APIs. Keep them beside the prepared runtime links so $ORIGIN and the
+        # executable's build RPATH resolve them at both link and load time.
+        for stub in sorted((qt/'lib').glob('libQt6FFmpegStub-*.so.*')):
+            if stub.is_file():
+                link(lib/stub.name, stub)
 print(f'Use -DNLE_FFMPEG_ROOT="{output}". Runtime libraries remain in the Qt SDK.')

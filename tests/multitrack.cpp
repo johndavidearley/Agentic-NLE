@@ -242,6 +242,8 @@ int main(int argc, char **argv) {
         bool measuring = false;
         QElapsedTimer presentation;
         double first_late = 0, last_late = 0;
+        double early_lateness = 0, late_lateness = 0;
+        int early_video_count = 0, late_video_count = 0;
         bool first = true;
         std::deque<std::pair<qint64, double>> audio_delivery;
         double early_skew = 0, late_skew = 0;
@@ -286,6 +288,17 @@ int main(int argc, char **argv) {
                         first = false;
                     }
                     last_late = late;
+                    // Startup command/socket latency is not sustained clock drift.
+                    // Compare the same steady-state windows used for A/V delivery,
+                    // retaining endpoint latency separately for diagnosis.
+                    if (time >= RationalTime{1} && time < RationalTime{4}) {
+                        early_lateness += late;
+                        ++early_video_count;
+                    }
+                    if (time >= RationalTime{seconds - 4} && time < RationalTime{seconds - 1}) {
+                        late_lateness += late;
+                        ++late_video_count;
+                    }
                     auto audio = audio_delivery.rend();
                     for (auto i = audio_delivery.rbegin(); i != audio_delivery.rend(); ++i)
                         if (i->first <= us(time)) {
@@ -370,7 +383,11 @@ int main(int argc, char **argv) {
         transport.cancel();
         wait([&] { return transport.idle(); }, 1000);
         const auto cancel = timer.elapsed();
-        const auto drift = std::abs(last_late - first_late);
+        check(early_video_count > 10 && late_video_count > 10,
+              "Insufficient presentation delivery samples");
+        const auto early_mean_lateness = early_lateness / early_video_count;
+        const auto late_mean_lateness = late_lateness / late_video_count;
+        const auto drift = std::abs(late_mean_lateness - early_mean_lateness);
         check(early_count > 10 && late_count > 10, "Insufficient A/V delivery pairs");
         const auto av_drift = std::abs(late_skew / late_count - early_skew / early_count);
         const auto dropped = ending["dropped"].toInteger(), frames = ending["frames"].toInteger();
@@ -388,6 +405,9 @@ int main(int argc, char **argv) {
                            {"frame_errors", frame_errors},
                            {"black_errors", black_errors},
                            {"presentation_drift_ms", drift},
+                           {"early_mean_delivery_lateness_ms", early_mean_lateness},
+                           {"late_mean_delivery_lateness_ms", late_mean_lateness},
+                           {"endpoint_delivery_difference_ms", std::abs(last_late - first_late)},
                            {"first_delivery_lateness_ms", first_late},
                            {"last_delivery_lateness_ms", last_late},
                            {"av_delivery_drift_ms", av_drift},
