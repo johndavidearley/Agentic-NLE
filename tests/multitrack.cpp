@@ -404,6 +404,8 @@ int main(int argc, char **argv) {
                             ready <= 3000 && percentile(seeks) <= 1000 && cancel <= 250 &&
                             ending["underruns"].toInteger() == 0 && dropped * 100 <= frames &&
                             drift <= 20 && av_drift <= 20 &&
+                            ending["queue_peak_chunks"].toInteger() > 0 &&
+                            ending["queue_peak_chunks"].toInteger() <= 100 &&
                             ending["queue_peak_bytes"].toInteger() <= 64 * 1024 * 1024;
         QJsonObject result{{"backend", "sequence-worker"},
                            {"duration_seconds", seconds},

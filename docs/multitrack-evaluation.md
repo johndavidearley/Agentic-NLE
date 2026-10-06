@@ -85,8 +85,12 @@ These measure delivery drift, not physical
 speaker/display synchronization. A separate available-device test sends silent PCM through
 the real QAudioSink and checks its processed-sample clock.
 
-The producer decodes and encodes preview JPEGs before queueing. The 32-chunk queue holds
-at most 320 ms and has a 64 MiB hard limit. Queue bytes count retained PCM and encoded
+The producer decodes and encodes preview JPEGs before queueing. Since the 2026-10-06 follow-up,
+the queue holds at most 100 ten-millisecond chunks (one second) rather than 32 (320 ms), providing
+more producer headroom for cut-time reopen/preroll. The startup-ready threshold remains 24 chunks;
+startup, seek, drift and underrun acceptance limits are unchanged. The queue retains its 64 MiB
+hard byte limit. Earlier measurements in this document used the 32-chunk queue.
+Queue bytes count retained PCM and encoded
 image messages; decoder working frames are covered by process-tree RSS. RSS includes the
 harness and children, sampled every 25 ms. Neither metric is an allocator-level proof.
 No builds run alongside the long performance measurement.

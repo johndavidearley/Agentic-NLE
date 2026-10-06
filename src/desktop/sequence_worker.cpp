@@ -42,6 +42,9 @@ struct Chunk {
     }
 };
 struct Queue {
+    // One second of 10 ms chunks, with the existing independent 64 MiB byte cap.
+    // Decoder reopen/preroll at a cut runs on the producer and needs headroom.
+    static constexpr std::size_t max_chunks = 100;
     std::mutex mutex;
     std::condition_variable changed;
     std::deque<Chunk> chunks;
@@ -50,6 +53,7 @@ struct Queue {
     std::string error;
     bool done = false;
     std::size_t bytes = 0, peak = 0;
+    std::size_t peak_chunks = 0;
 };
 } // namespace
 int main(int argc, char **argv) {
@@ -86,6 +90,7 @@ int main(int argc, char **argv) {
     std::uint64_t underruns = 0, dropped = 0, frames = 0;
     qint64 last_position = -1, last_tick = -1, max_tick_gap_us = 0;
     std::atomic<qint64> max_encode_us = 0;
+    std::atomic<qint64> max_produce_us = 0;
     QJsonArray late_frames;
     std::optional<qint64> first_lateness;
     qint64 last_lateness = 0;
@@ -227,11 +232,14 @@ int main(int argc, char **argv) {
                         for (;;) {
                             {
                                 std::unique_lock lock(queue.mutex);
-                                queue.changed.wait(
-                                    lock, [&] { return queue.stop || queue.chunks.size() < 32; });
+                                queue.changed.wait(lock, [&] {
+                                    return queue.stop || queue.chunks.size() < Queue::max_chunks;
+                                });
                                 if (queue.stop)
                                     return;
                             }
+                            QElapsedTimer producing;
+                            producing.start();
                             auto decoded = renderer.next();
                             if (decoded.end) {
                                 std::lock_guard lock(queue.mutex);
@@ -241,12 +249,15 @@ int main(int argc, char **argv) {
                             Chunk chunk{decoded.sample, std::move(decoded.audio), {}};
                             for (const auto &p : decoded.pictures)
                                 chunk.pictures.push_back(prepare(p));
+                            max_produce_us =
+                                std::max(max_produce_us.load(), producing.nsecsElapsed() / 1000);
                             std::lock_guard lock(queue.mutex);
                             queue.bytes += chunk.bytes();
                             queue.peak = std::max(queue.peak, queue.bytes);
                             if (queue.bytes > 64 * 1024 * 1024)
                                 throw DomainError("Decoded queue exceeds 64 MiB");
                             queue.chunks.push_back(std::move(chunk));
+                            queue.peak_chunks = std::max(queue.peak_chunks, queue.chunks.size());
                         }
                     } catch (const std::exception &e) {
                         std::lock_guard lock(queue.mutex);
@@ -304,9 +315,9 @@ int main(int argc, char **argv) {
         // Backend clocks may round the last sample down to integral microseconds.
         // Idle after all PCM was submitted means the device drained that tail; do
         // not wait forever for a processedUSecs value it can no longer advance.
-        const auto now = desktop::device_sample_position(
+        const auto now = static_cast<qint64>(desktop::device_sample_position(
             first_sample, elapsed, submitted, decode::sample_ceil(duration),
-            sink && sink->state() == QAudio::IdleState);
+            sink && sink->state() == QAudio::IdleState));
         // Submit only one device buffer ahead. In silent mode, consume on the same sample clock.
         for (;;) {
             if (!current) {
@@ -356,7 +367,11 @@ int main(int argc, char **argv) {
         }
         if (submitted < now && now < decode::sample_ceil(duration)) {
             ++underruns;
-            fail("Playback underrun; decoded data missed the sample clock");
+            fail(QString("Playback underrun; decoded data missed the sample clock "
+                         "(sample %1, submitted %2, max producer %3 us)")
+                     .arg(now)
+                     .arg(static_cast<qint64>(submitted))
+                     .arg(max_produce_us.load()));
             return;
         }
         while (!pictures.empty() && us(pictures.front().position) <= now * 1000000 / 48000) {
@@ -380,10 +395,11 @@ int main(int argc, char **argv) {
             playing = false;
             if (sink)
                 sink->reset();
-            std::size_t peak;
+            std::size_t peak, peak_chunks;
             {
                 std::lock_guard lock(queue.mutex);
                 peak = queue.peak;
+                peak_chunks = queue.peak_chunks;
             }
             send({{"type", "ended"},
                   {"underruns", static_cast<qint64>(underruns)},
@@ -393,6 +409,8 @@ int main(int argc, char **argv) {
                   {"first_lateness_us", first_lateness.value_or(0)},
                   {"last_lateness_us", last_lateness},
                   {"max_encode_us", max_encode_us.load()},
+                  {"max_produce_us", max_produce_us.load()},
+                  {"queue_peak_chunks", static_cast<qint64>(peak_chunks)},
                   {"late_frames", late_frames},
                   {"queue_peak_bytes", static_cast<qint64>(peak)}});
         }
