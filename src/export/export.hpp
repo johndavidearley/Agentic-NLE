@@ -4,6 +4,10 @@
 #include <filesystem>
 #include <functional>
 namespace nle::exporting {
+class Cancelled : public DomainError {
+  public:
+    Cancelled() : DomainError("Export cancelled") {}
+};
 enum class Preset { LosslessReference, Mp4H264 };
 struct Progress {
     std::uint64_t revision = 0;

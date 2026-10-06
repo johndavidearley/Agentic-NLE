@@ -124,7 +124,7 @@ Picture Renderer::poster(RationalTime time) {
 }
 Chunk Renderer::next() {
     if (stop_.load())
-        throw DomainError("Playback cancelled");
+        throw Cancelled{};
     if (blocks_++ % 100 == 0)
         check_sources();
     Chunk chunk;

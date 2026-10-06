@@ -1,3 +1,4 @@
+#include "desktop/sequence_audio_clock.hpp"
 #include "desktop/sequence_transport.hpp"
 #include "media/probe.hpp"
 #include <QAudioDevice>
@@ -9,23 +10,36 @@
 #include <QTemporaryDir>
 #include <QThread>
 #include <iostream>
+#include <source_location>
 using namespace nle;
 void check(bool value, const std::string &message) {
     if (!value)
         throw std::runtime_error(message);
 }
-template <class F> void wait(F done, int timeout = 5000) {
+template <class F>
+void wait(F done, int timeout = 5000,
+          std::source_location location = std::source_location::current()) {
     QElapsedTimer t;
     t.start();
     while (!done() && t.elapsed() < timeout) {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 5);
         QThread::msleep(1);
     }
-    check(done(), "Wait timed out");
+    check(done(), "Wait timed out at supervision line " + std::to_string(location.line()));
 }
 int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
     try {
+        check(desktop::device_sample_position(0, 999999, 48000, 48000, true) == 48000,
+              "Drained device did not reach final sample");
+        check(desktop::device_sample_position(0, 0, 480, 480, true) == 0,
+              "Startup-idle device completed before processing audio");
+        check(desktop::device_sample_position(0, 999999, 48000, 48000, false) == 47999,
+              "Active device completed before draining");
+        check(desktop::device_sample_position(0, 999999, 47999, 48000, true) == 47999,
+              "Idle device with unsubmitted PCM completed early");
+        check(desktop::device_sample_position(48000, 999999, 96000, 96000, true) == 96000,
+              "Drained device seek origin lost");
         const auto args = app.arguments();
         check(args.size() == 5, "worker probe corpus hanging-worker");
         QTemporaryDir temporary;

@@ -213,7 +213,7 @@ struct Muxer {
     void packets(AVCodecContext *codec, AVStream *stream, std::atomic_bool &stop) {
         for (;;) {
             if (stop.load(std::memory_order_relaxed))
-                throw DomainError("Export cancelled");
+                throw Cancelled{};
             const auto status = avcodec_receive_packet(codec, packet.get());
             if (status == AVERROR(EAGAIN))
                 break;
@@ -251,7 +251,7 @@ struct Muxer {
     }
     void encode(AVCodecContext *codec, AVStream *stream, AVFrame *frame, std::atomic_bool &stop) {
         if (stop.load(std::memory_order_relaxed))
-            throw DomainError("Export cancelled");
+            throw Cancelled{};
         auto status = avcodec_send_frame(codec, frame);
         if (status == AVERROR(EAGAIN)) {
             packets(codec, stream, stop);
@@ -499,9 +499,9 @@ void finish_aac(Muxer &muxer, AVCodecContext *codec, std::vector<float> &pending
 } // namespace
 
 Result export_sequence(playback::SequencePlan plan, const Options &options,
-                       std::atomic_bool &stop) {
+                       std::atomic_bool &stop) try {
     if (stop.load(std::memory_order_relaxed))
-        throw DomainError("Export cancelled");
+        throw Cancelled{};
     const auto target = target_path(options);
     const auto total_frames = frame_count(plan);
     const auto total_samples = decode::sample_ceil(plan.duration);
@@ -572,7 +572,7 @@ Result export_sequence(playback::SequencePlan plan, const Options &options,
     std::int64_t frames = 0, samples = 0, aac_encoded = 0;
     for (;;) {
         if (stop.load(std::memory_order_relaxed))
-            throw DomainError("Export cancelled");
+            throw Cancelled{};
         auto chunk = renderer.next();
         if (chunk.end)
             break;
@@ -598,7 +598,7 @@ Result export_sequence(playback::SequencePlan plan, const Options &options,
         finish_aac(muxer, audio, pending, aac_encoded, stop);
     renderer.validate_sources();
     if (stop.load(std::memory_order_relaxed))
-        throw DomainError("Export cancelled");
+        throw Cancelled{};
     muxer.flush(video, muxer.video_stream, stop);
     muxer.flush(audio, muxer.audio_stream, stop);
     check(av_write_trailer(muxer.format.get()), "Finish export container");
@@ -606,7 +606,7 @@ Result export_sequence(playback::SequencePlan plan, const Options &options,
         check(avio_closep(&muxer.format->pb), "Close staged export");
     renderer.validate_sources();
     if (stop.load(std::memory_order_relaxed))
-        throw DomainError("Export cancelled");
+        throw Cancelled{};
     if (options.validate_destination)
         options.validate_destination();
     install(staging.output, target, options.overwrite);
@@ -615,5 +615,7 @@ Result export_sequence(playback::SequencePlan plan, const Options &options,
         total_frames,           total_samples,
         muxer.video_codec_name, options.preset == Preset::LosslessReference ? "pcm_f32le" : "aac",
         av_version_info()};
+} catch (const decode::Cancelled &) {
+    throw Cancelled{};
 }
 } // namespace nle::exporting

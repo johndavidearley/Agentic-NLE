@@ -24,6 +24,11 @@ revision, sequence ID and BT.709 SDR profile. AAC output carries end-padding met
 availability depends on the linked runtime; the implementation does not bundle encoder binaries.
 The core, default CLI and Qt-free MCP remain independent of FFmpeg. Export is built only with the
 existing optional desktop/FFmpeg SDK.
+On Linux, the Qt SDK's FFmpeg stub libraries depend on Qt Multimedia's private symbol resolver.
+The optional decode/export targets therefore also link the matching `Qt6::Multimedia` SDK target,
+which supplies its transitive Qt libraries and runtime search paths. This reuses the existing Qt
+dependency; the core and lightweight MCP target remain independent of it. The alternative of
+silencing unresolved-symbol errors would leave these dependencies missing at runtime and is rejected.
 
 The supported output profile is progressive SDR at the sequence's even dimensions up to
 3840x2160, 1–60 fps, and 48 kHz stereo. The renderer decodes original sources no larger than

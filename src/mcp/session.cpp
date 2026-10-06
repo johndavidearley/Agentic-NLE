@@ -164,13 +164,13 @@ void Session::refresh_export(ExportJob &job) {
     try {
         job.result = job.future.get();
         job.status = "succeeded";
+    } catch (const exporting::Cancelled &error) {
+        job.error = error.what();
+        job.status = "cancelled";
     } catch (const std::exception &error) {
         job.error = error.what();
         // A cancellation request alone does not prove cancellation won the installation race.
-        job.status = job.error == "Export cancelled" || job.error == "Decode cancelled" ||
-                             job.error == "Playback cancelled"
-                         ? "cancelled"
-                         : "failed";
+        job.status = "failed";
     }
 }
 Json Session::export_status(const std::string &id, ExportJob &job) {

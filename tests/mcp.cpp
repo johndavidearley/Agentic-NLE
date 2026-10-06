@@ -330,12 +330,16 @@ void media_boundary(const std::filesystem::path &executable) {
     export_policy.output_access = output;
     auto release = std::make_shared<std::promise<void>>();
     auto gate = release->get_future().share();
-    export_policy.export_sequence = [gate](auto project, auto, auto options, auto &stop) {
+    auto force_failure = std::make_shared<std::atomic_bool>(false);
+    export_policy.export_sequence = [gate, force_failure](auto project, auto, auto options,
+                                                          auto &stop) {
         options.progress({project.revision, 0, 60, 0, 96000});
         if (gate.wait_for(std::chrono::seconds{2}) != std::future_status::ready)
             throw DomainError("Test gate timed out");
+        if (force_failure->load())
+            throw DomainError("Export cancelled"); // Same text is not a typed cancellation.
         if (stop.load())
-            throw DomainError("Export cancelled");
+            throw exporting::Cancelled{};
         return exporting::Result{project.revision, {2}, 60, 96000, "ffv1", "pcm_f32le", "test"};
     };
     Session export_session(export_editor.snapshot(), export_policy);
@@ -374,6 +378,21 @@ void media_boundary(const std::filesystem::path &executable) {
     }
     CHECK(status.at("status") == "cancelled");
     CHECK(export_session.current().revision == export_editor.revision());
+    force_failure->store(true);
+    start_args["request_key"] = "failed-export";
+    const auto failing = call(export_session, "export_start", start_args);
+    CHECK(failing.at("ok") == true);
+    cancel["request_key"] = "cancel-failed-export";
+    cancel["job_id"] = failing.at("job_id");
+    (void)call(export_session, "export_cancel", cancel);
+    poll["job_id"] = failing.at("job_id");
+    for (int attempt = 0; attempt < 1000; ++attempt) {
+        status = call(export_session, "export_status", poll);
+        if (status.at("status") != "running")
+            break;
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+    }
+    CHECK(status.at("status") == "failed" && status.at("cancel_requested") == true);
     denied([&] { (void)MediaAccess({root}, root / "missing-probe"); }, "configuration");
     denied([&] { (void)MediaAccess({fs::current_path().root_path()}, executable); },
            "configuration");

@@ -123,6 +123,15 @@ void audio_formats(const std::filesystem::path &root, const std::filesystem::pat
     Editor editor("Audio precision");
     (void)editor.execute(media::probe(root / "multi-audio.mkv", probe).import_command());
     const auto asset = editor.snapshot().media.front();
+    stop.store(true);
+    bool cancelled = false;
+    try {
+        decode::Decoder decoder(asset, 0, 960, 540, stop);
+    } catch (const decode::Cancelled &) {
+        cancelled = true;
+    }
+    check(cancelled, "Pre-cancelled source open did not return typed cancellation");
+    stop.store(false);
     for (std::uint32_t stream = 0; stream < 2; ++stream) {
         const auto samples = wave(root / names[stream + 2]);
         decode::Decoder decoder(asset, stream, 960, 540, stop);

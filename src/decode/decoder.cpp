@@ -85,13 +85,20 @@ struct Decoder::State {
     }
     void budget() const {
         if (stop.load())
-            throw DomainError("Decode cancelled");
+            throw Cancelled{};
         if (Clock::now() >= deadline)
             throw DomainError("Source decode timed out");
     }
     void begin() {
         deadline = Clock::now() + std::chrono::seconds(5);
         budget();
+    }
+    void check_io(int code, const char *operation) const {
+        // Only FFmpeg's interrupt result is translated; a concurrent cancellation
+        // request must not turn an unrelated codec or filesystem error into success.
+        if (code == AVERROR_EXIT)
+            budget();
+        check(code, operation);
     }
     bool decode() {
         av_frame_unref(next);
@@ -122,7 +129,7 @@ struct Decoder::State {
                 flushing = true;
                 check(avcodec_send_packet(codec, nullptr), "Flush decoder");
             } else {
-                check(read, "Read packet");
+                check_io(read, "Read packet");
                 check(avcodec_send_packet(codec, packet), "Send packet");
                 av_packet_unref(packet);
             }
@@ -207,6 +214,7 @@ Decoder::Decoder(const MediaAsset &asset, std::uint32_t stream, int width, int h
     if (!s.format)
         throw std::bad_alloc();
     s.format->interrupt_callback = {State::interrupt, &s};
+    s.begin();
     AVDictionary *options = nullptr;
     av_dict_set(&options, "protocol_whitelist", "file", 0);
     av_dict_set(&options, "format_whitelist", "wav,mov,matroska,avi,flac,mp3,ogg,aiff", 0);
@@ -214,8 +222,8 @@ Decoder::Decoder(const MediaAsset &asset, std::uint32_t stream, int width, int h
     av_dict_set(&options, "analyzeduration", "5000000", 0);
     const auto opened = avformat_open_input(&s.format, location->uri.c_str(), nullptr, &options);
     av_dict_free(&options);
-    check(opened, "Open source");
-    check(avformat_find_stream_info(s.format, nullptr), "Read streams");
+    s.check_io(opened, "Open source");
+    s.check_io(avformat_find_stream_info(s.format, nullptr), "Read streams");
     if (stream >= s.format->nb_streams)
         throw DomainError("Source stream layout changed");
     const auto *p = s.format->streams[stream]->codecpar;
@@ -284,10 +292,10 @@ void Decoder::seek(RationalTime source) {
         return;
     }
     const auto value = ticks(target, s.format->streams[s.stream]->time_base);
-    check(avformat_seek_file(s.format, static_cast<int>(s.stream),
-                             std::numeric_limits<std::int64_t>::min(), value, value,
-                             AVSEEK_FLAG_BACKWARD),
-          "Seek");
+    s.check_io(avformat_seek_file(s.format, static_cast<int>(s.stream),
+                                  std::numeric_limits<std::int64_t>::min(), value, value,
+                                  AVSEEK_FLAG_BACKWARD),
+               "Seek");
     avcodec_flush_buffers(s.codec);
     av_packet_unref(s.packet);
     av_frame_unref(s.current);

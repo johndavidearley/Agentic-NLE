@@ -4,6 +4,10 @@
 #include <memory>
 #include <span>
 namespace nle::decode {
+class Cancelled : public DomainError {
+  public:
+    Cancelled() : DomainError("Decode cancelled") {}
+};
 struct Video {
     std::optional<RationalTime> pts, end;
     int width = 0, height = 0;

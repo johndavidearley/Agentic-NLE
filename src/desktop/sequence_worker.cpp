@@ -1,4 +1,5 @@
 #include "decode/renderer.hpp"
+#include "desktop/sequence_audio_clock.hpp"
 #include "project/persistence.hpp"
 #include <QAudioDevice>
 #include <QAudioSink>
@@ -300,8 +301,12 @@ int main(int argc, char **argv) {
             return;
         }
         const auto elapsed = sink ? sink->processedUSecs() : clock.nsecsElapsed() / 1000;
-        const auto now = std::min<qint64>(first_sample + elapsed * 48000 / 1000000,
-                                          decode::sample_ceil(duration));
+        // Backend clocks may round the last sample down to integral microseconds.
+        // Idle after all PCM was submitted means the device drained that tail; do
+        // not wait forever for a processedUSecs value it can no longer advance.
+        const auto now = desktop::device_sample_position(
+            first_sample, elapsed, submitted, decode::sample_ceil(duration),
+            sink && sink->state() == QAudio::IdleState);
         // Submit only one device buffer ahead. In silent mode, consume on the same sample clock.
         for (;;) {
             if (!current) {

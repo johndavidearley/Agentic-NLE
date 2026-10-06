@@ -77,6 +77,11 @@ if(NLE_BUILD_DESKTOP OR NLE_MULTITRACK_PROTOTYPE)
     find_library(NLE_${component}_LIBRARY NAMES ${component} HINTS "${NLE_FFMPEG_ROOT}/lib" NO_DEFAULT_PATH REQUIRED)
     target_link_libraries(nle_decode PRIVATE "${NLE_${component}_LIBRARY}")
   endforeach()
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # Qt's FFmpeg runtime stubs use Multimedia's private symbol resolver.
+    # Link its SDK target so Qt libraries enter both the link search and build RPATH.
+    target_link_libraries(nle_decode PRIVATE Qt6::Multimedia)
+  endif()
   add_library(nle_export src/export/export.cpp)
   target_link_libraries(nle_export PUBLIC nle_decode)
   target_include_directories(nle_export BEFORE PRIVATE "${NLE_AV_INCLUDE}")
