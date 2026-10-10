@@ -80,7 +80,7 @@ if(NLE_BUILD_DESKTOP OR NLE_MULTITRACK_PROTOTYPE)
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Qt's FFmpeg runtime stubs use Multimedia's private symbol resolver.
     # Link its SDK target so Qt libraries enter both the link search and build RPATH.
-    target_link_libraries(nle_decode PRIVATE Qt6::Multimedia)
+    target_link_libraries(nle_decode PUBLIC Qt6::Multimedia)
   endif()
   add_library(nle_export src/export/export.cpp)
   target_link_libraries(nle_export PUBLIC nle_decode)
