@@ -128,6 +128,9 @@ jobs:
           prefix = configs[0].resolve().parents[3]
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
               env.write(f'CMAKE_PREFIX_PATH={prefix.as_posix()}\n')
+      - name: Set Linux Qt runtime library path
+        if: runner.os == 'Linux'
+        run: echo "LD_LIBRARY_PATH=$CMAKE_PREFIX_PATH/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
       - name: Check Linux playback plugin dependencies
         if: runner.os == 'Linux'
         shell: bash
