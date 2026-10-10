@@ -79,7 +79,12 @@ if(NLE_BUILD_DESKTOP OR NLE_MULTITRACK_PROTOTYPE)
   endforeach()
   if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Qt's FFmpeg runtime stubs use Multimedia's private symbol resolver.
-    # Link its SDK target so Qt libraries enter both the link search and build RPATH.
+    # Link its SDK target so those libraries are visible while linking.
+    get_target_property(NLE_QT_CORE_LIBRARY Qt6::Core IMPORTED_LOCATION)
+    if(NOT NLE_QT_CORE_LIBRARY)
+      get_target_property(NLE_QT_CORE_LIBRARY Qt6::Core IMPORTED_LOCATION_RELEASE)
+    endif()
+    cmake_path(GET NLE_QT_CORE_LIBRARY PARENT_PATH NLE_QT_LIB_DIR)
     target_link_libraries(nle_decode PRIVATE Qt6::Multimedia)
   endif()
   add_library(nle_export src/export/export.cpp)
@@ -316,7 +321,7 @@ if(BUILD_TESTING)
   set_tests_properties(cli-demo PROPERTIES FIXTURES_SETUP demo)
   set_tests_properties(cli-inspect PROPERTIES FIXTURES_REQUIRED demo PASS_REGULAR_EXPRESSION "clips=2")
 endif()
-foreach(target nle_export editor-export nle-qt-cache-tests nle-qt-timeline-workflow-tests nle-timeline-edit-tests nle-qt-timeline-tests nle-cache-worker nle-sequence-supervision-tests nle-multitrack-tests nle-sequence-worker nle_decode nle-sequence-tests nle_prototype_decode nle-multitrack-prototype nle-qt-recovery-tests nle-document-tests nle_mcp editor-mcp nle-mcp-tests nle-qt-precision-tests nle-source-timing-tests nle-hanging-worker editor-desktop nle-qt-desktop-tests nle_playback nle_desktop nle-preview-worker nle-playback-tests nle-qt-playback-tests nle_core nle_media nle-media-tests nle-process-helper editor-cli nle-tests nle-session-tests nle-benchmark)
+foreach(target nle_export editor-export editor-mcp-export nle-qt-cache-tests nle-qt-timeline-workflow-tests nle-timeline-edit-tests nle-qt-timeline-tests nle-cache-worker nle-sequence-supervision-tests nle-multitrack-tests nle-sequence-worker nle_decode nle-sequence-tests nle_prototype_decode nle-multitrack-prototype nle-qt-recovery-tests nle-document-tests nle_mcp editor-mcp nle-mcp-tests nle-qt-precision-tests nle-source-timing-tests nle-hanging-worker editor-desktop nle-qt-desktop-tests nle_playback nle_desktop nle-preview-worker nle-playback-tests nle-qt-playback-tests nle_core nle_media nle-media-tests nle-process-helper editor-cli nle-tests nle-session-tests nle-benchmark)
   if(TARGET ${target})
     if(MSVC)
       target_compile_options(${target} PRIVATE /W4 /permissive- /utf-8)
@@ -332,6 +337,12 @@ foreach(target nle_export editor-export nle-qt-cache-tests nle-qt-timeline-workf
       if(NLE_WARNINGS_AS_ERRORS)
         target_compile_options(${target} PRIVATE -Werror)
       endif()
+    endif()
+    # Prepared FFmpeg libraries are symlinks into this directory. Their DT_RUNPATH
+    # is $ORIGIN, which follows the path that loaded them. Searching the real Qt
+    # library directory first keeps stubs and libQt6Multimedia beside that origin.
+    if(NLE_QT_LIB_DIR)
+      set_property(TARGET ${target} PROPERTY BUILD_RPATH "${NLE_QT_LIB_DIR}")
     endif()
   endif()
 endforeach()

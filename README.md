@@ -67,6 +67,42 @@ cmake --build build-release --parallel
 ctest --test-dir build-release --output-on-failure
 ~~~
 
+### Ubuntu tests through Docker
+
+Docker Desktop on macOS or Windows runs the headless Ubuntu 24.04 checks from CI.
+The image contains GCC, Clang, CMake, clang-format 19, Python 3, and FFmpeg.
+The source tree is mounted read-only, and build directories stay in the
+`agentic-nle_ubuntu-build` volume.
+
+From the repository root, the same command works in a macOS shell and in Windows PowerShell:
+
+~~~sh
+docker compose run --rm ubuntu
+docker compose run --rm ubuntu sanitizers
+docker compose run --rm ubuntu all
+~~~
+
+Wrappers that find the repository from any working directory:
+
+~~~sh
+./docker/test.sh
+./docker/test.sh media
+~~~
+
+~~~powershell
+.\docker\test.ps1
+.\docker\test.ps1 format
+~~~
+
+The default suite, `core`, configures, builds, and tests GCC and Clang in Debug and Release.
+Other suite names are `debug`, `release`, `clang`, `format`, `sanitizers`, `media`, `desktop`, and `all`.
+`all` runs the core matrix, the clang-format 19 check, address and undefined-behavior
+sanitizers, and the generated FFmpeg media corpus. `desktop` repeats the Ubuntu desktop CI
+job, including the pinned Qt 6.10.3 SDK, the FFmpeg corpus, and the MCP export client.
+Remove the saved build volume with `docker compose down --volumes` when a
+clean configure is required. On Apple Silicon, prefix the command with
+`DOCKER_DEFAULT_PLATFORM=linux/amd64` to match the amd64 Ubuntu CI runner.
+
 macOS CI uses the explicit macos-15 (Apple Silicon) and macos-15-intel runners.
 Both macOS architectures passed the Milestone 7 CI matrix; macOS was not executed locally
 from this Windows workspace.

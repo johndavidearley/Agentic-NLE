@@ -1,0 +1,22 @@
+# Headless Ubuntu 24.04 checks for macOS and Windows hosts running Docker Desktop.
+# Build trees live in the ubuntu-build volume. The source tree is mounted read-only.
+name: agentic-nle
+
+services:
+  ubuntu:
+    build:
+      context: docker
+      dockerfile: Dockerfile
+    image: agentic-nle-ubuntu:24.04
+    init: true
+    volumes:
+      - .:/src:ro
+      - ubuntu-build:/build
+    # AddressSanitizer reports leaks through ptrace. The default container profile blocks that.
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+
+volumes:
+  ubuntu-build:

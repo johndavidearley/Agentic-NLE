@@ -3,3 +3,6 @@
 *.hpp text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+compose.yaml text eol=lf
